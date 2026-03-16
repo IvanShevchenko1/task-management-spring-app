@@ -39,5 +39,10 @@ public interface UserMapper {
                 .map(role -> role.getRole().name())
                 .collect(Collectors.toSet());
     }
+
+    @Named("getIdFromUser")
+    default Long getId(User user) {
+        return user.getId();
+    }
 }
 

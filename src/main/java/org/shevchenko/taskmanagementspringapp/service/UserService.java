@@ -5,6 +5,7 @@ import org.shevchenko.taskmanagementspringapp.dto.user.UserResponseDto;
 import org.shevchenko.taskmanagementspringapp.dto.user.UserUpdateRequestDto;
 import org.shevchenko.taskmanagementspringapp.dto.user.UserUpdateRoleRequestDto;
 import org.shevchenko.taskmanagementspringapp.exception.RegistrationException;
+import org.shevchenko.taskmanagementspringapp.model.User;
 
 public interface UserService {
     UserResponseDto register(UserRegistrationRequestDto requestDto) throws RegistrationException;
@@ -14,4 +15,6 @@ public interface UserService {
     UserResponseDto updateAuthenticatedUser(UserUpdateRequestDto request);
 
     UserResponseDto updateRole(Long id, UserUpdateRoleRequestDto request);
+
+    User getAuthenticatedUserOrThrow();
 }
