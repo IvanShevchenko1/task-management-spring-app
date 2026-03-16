@@ -2,6 +2,7 @@ package org.shevchenko.taskmanagementspringapp.dto.user;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 import org.shevchenko.taskmanagementspringapp.constraint.FieldMatch;
@@ -16,6 +17,11 @@ public class UserRegistrationRequestDto {
     private String email;
     @NotBlank
     @Size(min = 6, max = 20)
+    @Pattern(
+            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&.#_\\-]).*$",
+            message = "Password must contain an uppercase letter, "
+                    + "a lowercase letter, a number, and a special character"
+    )
     private String password;
     @NotBlank
     @Size(min = 6, max = 20)
