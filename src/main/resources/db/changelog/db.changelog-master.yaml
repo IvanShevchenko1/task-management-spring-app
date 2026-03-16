@@ -1,1 +1,9 @@
 databaseChangeLog:
+  - include:
+      file: db/changelog/changes/001-create-users-table.yaml
+  - include:
+      file: db/changelog/changes/002-сreate-roles-table.yaml
+  - include:
+      file: db/changelog/changes/003-create-users-roles-table.yaml
+  - include:
+      file: db/changelog/changes/004-add-basic-roles.yaml
