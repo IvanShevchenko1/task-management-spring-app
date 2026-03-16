@@ -1,13 +1,9 @@
 package org.shevchenko.taskmanagementspringapp.dto.user;
 
-import java.util.Set;
-
-public record UserResponseDto(
-        Long id,
+public record UserUpdateRequestDto(
         String email,
         String username,
         String firstName,
-        String lastName,
-        Set<String> roles
+        String lastName
 ) {
 }

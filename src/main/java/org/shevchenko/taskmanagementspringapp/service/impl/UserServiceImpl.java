@@ -3,6 +3,9 @@ package org.shevchenko.taskmanagementspringapp.service.impl;
 import lombok.RequiredArgsConstructor;
 import org.shevchenko.taskmanagementspringapp.dto.user.UserRegistrationRequestDto;
 import org.shevchenko.taskmanagementspringapp.dto.user.UserResponseDto;
+import org.shevchenko.taskmanagementspringapp.dto.user.UserUpdateRequestDto;
+import org.shevchenko.taskmanagementspringapp.dto.user.UserUpdateRoleRequestDto;
+import org.shevchenko.taskmanagementspringapp.exception.EntityNotFoundException;
 import org.shevchenko.taskmanagementspringapp.exception.RegistrationException;
 import org.shevchenko.taskmanagementspringapp.mapper.UserMapper;
 import org.shevchenko.taskmanagementspringapp.model.Role;
@@ -10,6 +13,8 @@ import org.shevchenko.taskmanagementspringapp.model.User;
 import org.shevchenko.taskmanagementspringapp.repository.RoleRepository;
 import org.shevchenko.taskmanagementspringapp.repository.UserRepository;
 import org.shevchenko.taskmanagementspringapp.service.UserService;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,5 +49,42 @@ public class UserServiceImpl implements UserService {
 
         userRepository.save(user);
         return userMapper.toDto(user);
+    }
+
+    @Override
+    public UserResponseDto getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User user = (User) authentication.getPrincipal();
+        return userMapper.toDto(user);
+    }
+
+    @Override
+    public UserResponseDto updateAuthenticatedUser(UserUpdateRequestDto request) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User user = (User) authentication.getPrincipal();
+        userMapper.updateEntity(request, user);
+        return userMapper.toDto(userRepository.save(user));
+    }
+
+    @Override
+    @Transactional
+    public UserResponseDto updateRole(Long id, UserUpdateRoleRequestDto request) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Can't find user by id: " + id));
+
+        Role.RoleName roleName;
+        try {
+            roleName = Role.RoleName.valueOf(request.role().toUpperCase());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new RuntimeException("Invalid role: " + request.role());
+        }
+
+        Role role = roleRepository.findByRole(roleName)
+                .orElseThrow(() -> new EntityNotFoundException("Can't find role: " + roleName));
+
+        user.getRoles().clear();
+        user.getRoles().add(role);
+
+        return userMapper.toDto(userRepository.save(user));
     }
 }
