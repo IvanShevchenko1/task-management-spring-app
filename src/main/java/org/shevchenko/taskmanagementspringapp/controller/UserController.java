@@ -5,12 +5,14 @@ import org.shevchenko.taskmanagementspringapp.dto.user.UserResponseDto;
 import org.shevchenko.taskmanagementspringapp.dto.user.UserUpdateRequestDto;
 import org.shevchenko.taskmanagementspringapp.dto.user.UserUpdateRoleRequestDto;
 import org.shevchenko.taskmanagementspringapp.service.UserService;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RequiredArgsConstructor
@@ -21,12 +23,14 @@ public class UserController {
 
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @GetMapping("/me")
+    @ResponseStatus(HttpStatus.OK)
     public UserResponseDto getAuthenticatedUser() {
         return userService.getAuthenticatedUser();
     }
 
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @PutMapping("/me")
+    @ResponseStatus(HttpStatus.OK)
     public UserResponseDto updateAuthenticatedUser(
             @RequestBody UserUpdateRequestDto request) {
         return userService.updateAuthenticatedUser(request);
@@ -34,6 +38,7 @@ public class UserController {
 
     @PreAuthorize("hasAnyAuthority('ADMIN')")
     @PutMapping("/{id}/role")
+    @ResponseStatus(HttpStatus.OK)
     public UserResponseDto updateRole(@PathVariable Long id,
                                       @RequestBody UserUpdateRoleRequestDto request) {
         return userService.updateRole(id,request);

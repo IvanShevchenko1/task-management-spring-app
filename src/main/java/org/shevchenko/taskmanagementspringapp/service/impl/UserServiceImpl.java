@@ -13,6 +13,8 @@ import org.shevchenko.taskmanagementspringapp.model.User;
 import org.shevchenko.taskmanagementspringapp.repository.RoleRepository;
 import org.shevchenko.taskmanagementspringapp.repository.UserRepository;
 import org.shevchenko.taskmanagementspringapp.service.UserService;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -53,15 +55,13 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserResponseDto getAuthenticatedUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        User user = (User) authentication.getPrincipal();
+        User user = getAuthenticatedUserOrThrow();
         return userMapper.toDto(user);
     }
 
     @Override
     public UserResponseDto updateAuthenticatedUser(UserUpdateRequestDto request) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        User user = (User) authentication.getPrincipal();
+        User user = getAuthenticatedUserOrThrow();
         userMapper.updateEntity(request, user);
         return userMapper.toDto(userRepository.save(user));
     }
@@ -86,5 +86,23 @@ public class UserServiceImpl implements UserService {
         user.getRoles().add(role);
 
         return userMapper.toDto(userRepository.save(user));
+    }
+
+    @Override
+    public User getAuthenticatedUserOrThrow() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken) {
+            throw new AccessDeniedException("User is not authenticated");
+        }
+
+        Object principal = authentication.getPrincipal();
+
+        if (!(principal instanceof User user)) {
+            throw new AccessDeniedException("Authenticated principal is invalid");
+        }
+
+        return user;
     }
 }
