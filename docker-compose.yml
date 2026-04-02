@@ -1,0 +1,46 @@
+services:
+  db:
+    image: mysql:8.4
+    container_name: task_management_db
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    ports:
+      - "${MYSQLDB_LOCAL_PORT}:${MYSQLDB_DOCKER_PORT}"
+    environment:
+      MYSQL_DATABASE: "${MYSQLDB_DATABASE}"
+      MYSQL_USER: "${MYSQLDB_USER}"
+      MYSQL_PASSWORD: "${MYSQLDB_PASSWORD}"
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -p${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  app:
+    build: .
+    container_name: task_management_app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ./.env
+    ports:
+      - "${SPRING_LOCAL_PORT}:${SPRING_DOCKER_PORT}"
+    environment:
+      DB_URL: "jdbc:mysql://db:${MYSQLDB_DOCKER_PORT}/${MYSQLDB_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8"
+      DB_USER: "${MYSQLDB_USER}"
+      DB_PASSWORD: "${MYSQLDB_PASSWORD}"
+      JWT_SECRET: "${JWT_SECRET}"
+      JWT_EXPIRATION: "${JWT_EXPIRATION}"
+      DROPBOX_ACCESS_TOKEN: "${DROPBOX_ACCESS_TOKEN}"
+      DROPBOX_REFRESH_TOKEN: "${DROPBOX_REFRESH_TOKEN}"
+      DROPBOX_CLIENT_ID: "${DROPBOX_CLIENT_ID}"
+      DROPBOX_CLIENT_SECRET: "${DROPBOX_CLIENT_SECRET}"
+
+volumes:
+  mysql_data:
