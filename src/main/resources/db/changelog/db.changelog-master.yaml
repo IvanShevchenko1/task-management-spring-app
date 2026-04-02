@@ -11,3 +11,5 @@ databaseChangeLog:
       file: db/changelog/changes/005-create-projects-table.yaml
   - include:
       file: db/changelog/changes/006-create-tasks-table.yaml
+  - include:
+      file: db/changelog/changes/007-create-comments-table.yaml
