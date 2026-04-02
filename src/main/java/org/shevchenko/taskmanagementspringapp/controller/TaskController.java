@@ -21,29 +21,31 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RequiredArgsConstructor
 @RestController
-@RequestMapping("/tasks")
+@RequestMapping("/projects/{projectId}/tasks")
 public class TaskController {
     private final TaskService taskService;
 
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public TaskResponseDto createTask(@RequestBody @Valid TaskCreateRequestDto requestDto) {
-        return taskService.createTask(requestDto);
+    public TaskResponseDto createTask(
+            @PathVariable Long projectId,
+            @RequestBody @Valid TaskCreateRequestDto requestDto) {
+        return taskService.createTask(projectId, requestDto);
     }
 
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
-    public List<TaskResponseDto> getAllTasks() {
-        return taskService.getAllTasks();
+    public List<TaskResponseDto> getAllTasks(@PathVariable Long projectId) {
+        return taskService.getAllTasksById(projectId);
     }
 
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
-    @GetMapping("/{id}")
+    @GetMapping("/{taskId}")
     @ResponseStatus(HttpStatus.OK)
-    public TaskResponseDto getTaskById(@PathVariable Long id) {
-        return taskService.getTaskById(id);
+    public TaskResponseDto getTaskById(@PathVariable Long taskId) {
+        return taskService.getTaskById(taskId);
     }
 
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")

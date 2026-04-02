@@ -8,6 +8,7 @@ public record TaskResponseDto(
         String name,
         Task.Priority priority,
         Task.Status status,
-        LocalDate dueDate
+        LocalDate dueDate,
+        Long projectId
 ) {
 }

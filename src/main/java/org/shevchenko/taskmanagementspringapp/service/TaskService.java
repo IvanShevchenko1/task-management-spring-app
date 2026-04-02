@@ -6,9 +6,9 @@ import org.shevchenko.taskmanagementspringapp.dto.task.TaskResponseDto;
 import org.shevchenko.taskmanagementspringapp.dto.task.TaskUpdateRequestDto;
 
 public interface TaskService {
-    TaskResponseDto createTask(TaskCreateRequestDto requestDto);
+    TaskResponseDto createTask(Long projectId, TaskCreateRequestDto requestDto);
 
-    List<TaskResponseDto> getAllTasks();
+    List<TaskResponseDto> getAllTasksById(Long projectId);
 
     TaskResponseDto getTaskById(Long id);
 
