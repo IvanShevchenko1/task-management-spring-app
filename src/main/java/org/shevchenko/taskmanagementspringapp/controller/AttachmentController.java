@@ -1,5 +1,7 @@
 package org.shevchenko.taskmanagementspringapp.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.IOException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -20,9 +22,11 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/attachments")
+@Tag(name = "Attachments", description = "Endpoints for managing task attachments")
 public class AttachmentController {
     private final AttachmentService attachmentService;
 
+    @Operation(summary = "Upload attachment to a task")
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -33,6 +37,7 @@ public class AttachmentController {
         return attachmentService.upload(taskId, file);
     }
 
+    @Operation(summary = "Get all attachments for a task")
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
@@ -40,6 +45,7 @@ public class AttachmentController {
         return attachmentService.getByTaskId(taskId);
     }
 
+    @Operation(summary = "Delete attachment by id")
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

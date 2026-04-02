@@ -1,5 +1,7 @@
 package org.shevchenko.taskmanagementspringapp.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -25,10 +27,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/projects/{projectId}/tasks")
+@Tag(name = "Tasks", description = "Endpoints for managing project tasks")
 public class TaskController {
     private final TaskService taskService;
     private final LabelService labelService;
 
+    @Tag(name = "Tasks", description = "Endpoints for managing project tasks")
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -38,6 +42,7 @@ public class TaskController {
         return taskService.createTask(projectId, requestDto);
     }
 
+    @Operation(summary = "Get all tasks for project")
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
@@ -45,6 +50,7 @@ public class TaskController {
         return taskService.getAllTasksById(projectId);
     }
 
+    @Operation(summary = "Get task by id")
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @GetMapping("/{taskId}")
     @ResponseStatus(HttpStatus.OK)
@@ -52,6 +58,7 @@ public class TaskController {
         return taskService.getTaskById(taskId);
     }
 
+    @Operation(summary = "Update task by id")
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @PutMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
@@ -62,6 +69,7 @@ public class TaskController {
         return taskService.updateTask(id, requestDto);
     }
 
+    @Operation(summary = "Delete task by id")
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

@@ -1,5 +1,7 @@
 package org.shevchenko.taskmanagementspringapp.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -21,9 +23,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/comments")
+@Tag(name = "Comments", description = "Endpoints for managing task comments")
 public class CommentController {
     private final CommentService commentService;
 
+    @Operation(summary = "Add comment to task")
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -33,6 +37,7 @@ public class CommentController {
         return commentService.addComment(requestDto);
     }
 
+    @Operation(summary = "Get comments for task")
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
@@ -42,6 +47,7 @@ public class CommentController {
         return commentService.getCommentsByTaskId(taskId);
     }
 
+    @Operation(summary = "Delete comment by id")
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

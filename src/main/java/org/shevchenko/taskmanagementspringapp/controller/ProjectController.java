@@ -1,5 +1,7 @@
 package org.shevchenko.taskmanagementspringapp.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.shevchenko.taskmanagementspringapp.dto.project.ProjectCreateRequestDto;
 import org.shevchenko.taskmanagementspringapp.dto.project.ProjectResponseDto;
@@ -21,9 +23,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/projects")
+@Tag(name = "Projects", description = "Endpoints for managing projects")
 public class ProjectController {
     private final ProjectService projectService;
 
+    @Operation(summary = "Create project")
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -31,6 +35,7 @@ public class ProjectController {
         return projectService.createProject(request);
     }
 
+    @Operation(summary = "Get all projects for authenticated user")
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
@@ -39,6 +44,7 @@ public class ProjectController {
         return projectService.getAllProjectsForAuthenticatedUser(pageable);
     }
 
+    @Operation(summary = "Get project by id")
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @GetMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
@@ -46,6 +52,7 @@ public class ProjectController {
         return projectService.getProjectById(id);
     }
 
+    @Operation(summary = "Update project by id")
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @PutMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
@@ -54,6 +61,7 @@ public class ProjectController {
         return projectService.updateProjectById(id,request);
     }
 
+    @Operation(summary = "Update project by id")
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
