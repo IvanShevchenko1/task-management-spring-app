@@ -2,17 +2,15 @@ package org.shevchenko.taskmanagementspringapp.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Set;
 import lombok.Getter;
@@ -23,40 +21,33 @@ import org.hibernate.annotations.SQLRestriction;
 @Entity
 @Getter
 @Setter
-@SQLDelete(sql = "UPDATE tasks SET is_deleted = true WHERE task_id=?")
+@SQLDelete(sql = "UPDATE labels SET is_deleted = true WHERE label_id=?")
 @SQLRestriction("is_deleted = false")
-@Table(name = "tasks")
-public class Task {
+@Table(name = "labels")
+public class Label {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "task_id")
+    @Column(name = "label_id")
     private Long id;
-    @Column(nullable = false)
+
+    @Column(nullable = false, length = 100)
     private String name;
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Priority priority;
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Status status;
-    @Column(name = "due_date", nullable = false)
-    private LocalDate dueDate;
+
+    @Column(nullable = false, length = 50)
+    private String color;
+
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted = false;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "project_id", nullable = false)
-    private Project project;
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
-    @ManyToMany(mappedBy = "tasks")
-    private Set<Label> labels = new HashSet<>();
-
-    public enum Priority {
-        LOW, MEDIUM, HIGH
-    }
-
-    public enum Status {
-        NOT_STARTED, IN_PROGRESS, COMPLETED
-    }
-
+    @ManyToMany
+    @JoinTable(
+            name = "tasks_labels",
+            joinColumns = @JoinColumn(name = "label_id"),
+            inverseJoinColumns = @JoinColumn(name = "task_id")
+    )
+    private Set<Task> tasks = new HashSet<>();
 }

@@ -3,9 +3,12 @@ package org.shevchenko.taskmanagementspringapp.controller;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.shevchenko.taskmanagementspringapp.dto.label.AssignLabelsToTaskRequestDto;
+import org.shevchenko.taskmanagementspringapp.dto.label.LabelResponseDto;
 import org.shevchenko.taskmanagementspringapp.dto.task.TaskCreateRequestDto;
 import org.shevchenko.taskmanagementspringapp.dto.task.TaskResponseDto;
 import org.shevchenko.taskmanagementspringapp.dto.task.TaskUpdateRequestDto;
+import org.shevchenko.taskmanagementspringapp.service.LabelService;
 import org.shevchenko.taskmanagementspringapp.service.TaskService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -24,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/projects/{projectId}/tasks")
 public class TaskController {
     private final TaskService taskService;
+    private final LabelService labelService;
 
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @PostMapping
@@ -63,5 +67,14 @@ public class TaskController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteTask(@PathVariable Long id) {
         taskService.deleteTask(id);
+    }
+
+    @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
+    @PutMapping("/{taskId}/labels")
+    public List<LabelResponseDto> assignLabels(
+            @PathVariable Long taskId,
+            @RequestBody @Valid AssignLabelsToTaskRequestDto requestDto
+    ) {
+        return labelService.assignToTask(taskId, requestDto.labelIds());
     }
 }
