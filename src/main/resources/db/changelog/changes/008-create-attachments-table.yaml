@@ -1,0 +1,66 @@
+databaseChangeLog:
+  - changeSet:
+      id: 008-create-attachments-table
+      author: Ivan
+      changes:
+        - createTable:
+            tableName: attachments
+            columns:
+              - column:
+                  name: attachment_id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+              - column:
+                  name: task_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: dropbox_file_id
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: dropbox_path
+                  type: VARCHAR(1024)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: filename
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: upload_date
+                  type: DATETIME
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: is_deleted
+                  type: BIT(1)
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+
+        - addForeignKeyConstraint:
+            baseTableName: attachments
+            baseColumnNames: task_id
+            referencedTableName: tasks
+            referencedColumnNames: task_id
+            constraintName: fk_attachments_task
+
+        - createIndex:
+            tableName: attachments
+            indexName: idx_attachments_task_id
+            columns:
+              - column:
+                  name: task_id
