@@ -9,3 +9,5 @@ databaseChangeLog:
       file: db/changelog/changes/004-add-basic-roles.yaml
   - include:
       file: db/changelog/changes/005-create-projects-table.yaml
+  - include:
+      file: db/changelog/changes/006-create-tasks-table.yaml
