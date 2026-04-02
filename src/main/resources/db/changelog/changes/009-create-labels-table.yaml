@@ -1,0 +1,102 @@
+databaseChangeLog:
+  - changeSet:
+      id: 009-create-labels-table
+      author: Ivan
+      changes:
+        - createTable:
+            tableName: labels
+            columns:
+              - column:
+                  name: label_id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+              - column:
+                  name: name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: color
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: is_deleted
+                  type: BIT(1)
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+
+        - addForeignKeyConstraint:
+            baseTableName: labels
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: user_id
+            constraintName: fk_labels_user
+
+        - createIndex:
+            tableName: labels
+            indexName: idx_labels_user_id
+            columns:
+              - column:
+                  name: user_id
+
+        - createTable:
+            tableName: tasks_labels
+            columns:
+              - column:
+                  name: task_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: label_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+
+        - addPrimaryKey:
+            tableName: tasks_labels
+            columnNames: task_id, label_id
+            constraintName: pk_tasks_labels
+
+        - addForeignKeyConstraint:
+            baseTableName: tasks_labels
+            baseColumnNames: task_id
+            referencedTableName: tasks
+            referencedColumnNames: task_id
+            constraintName: fk_tasks_labels_task
+
+        - addForeignKeyConstraint:
+            baseTableName: tasks_labels
+            baseColumnNames: label_id
+            referencedTableName: labels
+            referencedColumnNames: label_id
+            constraintName: fk_tasks_labels_label
+
+        - createIndex:
+            tableName: tasks_labels
+            indexName: idx_tasks_labels_task_id
+            columns:
+              - column:
+                  name: task_id
+
+        - createIndex:
+            tableName: tasks_labels
+            indexName: idx_tasks_labels_label_id
+            columns:
+              - column:
+                  name: label_id
