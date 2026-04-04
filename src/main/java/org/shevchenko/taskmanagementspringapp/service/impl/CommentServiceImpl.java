@@ -1,6 +1,5 @@
 package org.shevchenko.taskmanagementspringapp.service.impl;
 
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.shevchenko.taskmanagementspringapp.dto.comment.CommentCreateRequestDto;
 import org.shevchenko.taskmanagementspringapp.dto.comment.CommentResponseDto;
@@ -13,6 +12,8 @@ import org.shevchenko.taskmanagementspringapp.repository.CommentRepository;
 import org.shevchenko.taskmanagementspringapp.repository.TaskRepository;
 import org.shevchenko.taskmanagementspringapp.service.CommentService;
 import org.shevchenko.taskmanagementspringapp.service.UserService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,15 +44,15 @@ public class CommentServiceImpl implements CommentService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<CommentResponseDto> getCommentsByTaskId(Long taskId) {
+    public Page<CommentResponseDto> getCommentsByTaskId(Long taskId,
+                                                        Pageable pageable) {
         taskRepository.findById(taskId)
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Can't find task by id: " + taskId
                 ));
 
-        return commentRepository.findAllByTaskIdOrderByTimestampAsc(taskId).stream()
-                .map(commentMapper::toDto)
-                .toList();
+        return commentRepository.findAllByTaskIdOrderByTimestampAsc(taskId, pageable)
+                .map(commentMapper::toDto);
     }
 
     @Override

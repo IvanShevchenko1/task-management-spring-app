@@ -1,6 +1,5 @@
 package org.shevchenko.taskmanagementspringapp.service.impl;
 
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.shevchenko.taskmanagementspringapp.dto.task.TaskCreateRequestDto;
 import org.shevchenko.taskmanagementspringapp.dto.task.TaskResponseDto;
@@ -12,6 +11,8 @@ import org.shevchenko.taskmanagementspringapp.model.Task;
 import org.shevchenko.taskmanagementspringapp.repository.ProjectRepository;
 import org.shevchenko.taskmanagementspringapp.repository.TaskRepository;
 import org.shevchenko.taskmanagementspringapp.service.TaskService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,10 +39,10 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
-    public List<TaskResponseDto> getAllTasksById(Long projectId) {
-        return taskRepository.findAllByProjectId(projectId).stream()
-                .map(taskMapper::toDto)
-                .toList();
+    public Page<TaskResponseDto> getAllTasksById(Long projectId,
+                                                 Pageable pageable) {
+        return taskRepository.findAllByProjectId(projectId, pageable)
+                .map(taskMapper::toDto);
     }
 
     @Override

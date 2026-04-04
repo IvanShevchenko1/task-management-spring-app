@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,11 +22,15 @@ import org.shevchenko.taskmanagementspringapp.model.Role;
 import org.shevchenko.taskmanagementspringapp.model.User;
 import org.shevchenko.taskmanagementspringapp.repository.RoleRepository;
 import org.shevchenko.taskmanagementspringapp.repository.UserRepository;
-import org.shevchenko.taskmanagementspringapp.support.TestDataFactory;
+import org.shevchenko.taskmanagementspringapp.util.TestDataFactory;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.util.List;
+import java.util.Optional;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceImplTest {
@@ -95,7 +98,11 @@ class UserServiceImplTest {
     void getAuthenticatedUser_shouldReturnMappedPrincipal() {
         User authenticatedUser = TestDataFactory.standardUser(7L);
         SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(authenticatedUser, null, authenticatedUser.getAuthorities())
+                new UsernamePasswordAuthenticationToken(
+                        authenticatedUser,
+                        null,
+                        authenticatedUser.getAuthorities()
+                )
         );
         UserResponseDto responseDto = TestDataFactory.userResponse(7L);
         when(userMapper.toDto(authenticatedUser)).thenReturn(responseDto);
@@ -107,7 +114,11 @@ class UserServiceImplTest {
     void updateAuthenticatedUser_shouldMapAndSavePrincipal() {
         User authenticatedUser = TestDataFactory.standardUser(7L);
         SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(authenticatedUser, null, authenticatedUser.getAuthorities())
+                new UsernamePasswordAuthenticationToken(
+                        authenticatedUser,
+                        null,
+                        authenticatedUser.getAuthorities()
+                )
         );
         UserUpdateRequestDto requestDto = TestDataFactory.userUpdateRequest();
         UserResponseDto responseDto = TestDataFactory.userResponse(7L);
@@ -169,19 +180,27 @@ class UserServiceImplTest {
     @Test
     void getAuthenticatedUserOrThrow_shouldRejectInvalidPrincipal() {
         SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken("plain-string", null)
+                new UsernamePasswordAuthenticationToken(
+                        "plain-string",
+                        null,
+                        List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                )
         );
 
         assertThatThrownBy(() -> userService.getAuthenticatedUserOrThrow())
                 .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("User is not authenticated");
+                .hasMessage("Authenticated principal is invalid");
     }
 
     @Test
     void getAuthenticatedUserOrThrow_shouldReturnUserPrincipal() {
         User authenticatedUser = TestDataFactory.standardUser(7L);
         SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(authenticatedUser, null, authenticatedUser.getAuthorities())
+                new UsernamePasswordAuthenticationToken(
+                        authenticatedUser,
+                        null,
+                        authenticatedUser.getAuthorities()
+                )
         );
 
         assertThat(userService.getAuthenticatedUserOrThrow()).isSameAs(authenticatedUser);

@@ -3,11 +3,12 @@ package org.shevchenko.taskmanagementspringapp.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.shevchenko.taskmanagementspringapp.dto.label.LabelCreateRequestDto;
 import org.shevchenko.taskmanagementspringapp.dto.label.LabelResponseDto;
 import org.shevchenko.taskmanagementspringapp.service.LabelService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -38,8 +39,8 @@ public class LabelController {
     @Operation(summary = "Get all labels of authenticated user")
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @GetMapping
-    public List<LabelResponseDto> getAll() {
-        return labelService.getAll();
+    public Page<LabelResponseDto> getAll(Pageable pageable) {
+        return labelService.getAll(pageable);
     }
 
     @Operation(summary = "Update label by id")

@@ -20,7 +20,7 @@ import org.shevchenko.taskmanagementspringapp.model.Project;
 import org.shevchenko.taskmanagementspringapp.model.User;
 import org.shevchenko.taskmanagementspringapp.repository.ProjectRepository;
 import org.shevchenko.taskmanagementspringapp.service.UserService;
-import org.shevchenko.taskmanagementspringapp.support.TestDataFactory;
+import org.shevchenko.taskmanagementspringapp.util.TestDataFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;

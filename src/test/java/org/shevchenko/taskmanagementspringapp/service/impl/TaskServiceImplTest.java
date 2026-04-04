@@ -23,7 +23,11 @@ import org.shevchenko.taskmanagementspringapp.model.Project;
 import org.shevchenko.taskmanagementspringapp.model.Task;
 import org.shevchenko.taskmanagementspringapp.repository.ProjectRepository;
 import org.shevchenko.taskmanagementspringapp.repository.TaskRepository;
-import org.shevchenko.taskmanagementspringapp.support.TestDataFactory;
+import org.shevchenko.taskmanagementspringapp.util.TestDataFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 class TaskServiceImplTest {
@@ -73,19 +77,21 @@ class TaskServiceImplTest {
     @Test
     void getAllTasksById_shouldMapEachTaskToDto() {
         Long projectId = 10L;
+        Pageable pageable = PageRequest.of(0, 10);
         Project project = TestDataFactory.project(projectId, TestDataFactory.standardUser(1L));
         Task firstTask = TestDataFactory.task(1L, project);
         Task secondTask = TestDataFactory.task(2L, project);
         TaskResponseDto firstDto = TestDataFactory.taskResponse(1L, projectId);
         TaskResponseDto secondDto = TestDataFactory.taskResponse(2L, projectId);
+        Page<Task> page = new PageImpl<>(List.of(firstTask, secondTask), pageable, 2);
 
-        when(taskRepository.findAllByProjectId(projectId)).thenReturn(List.of(firstTask, secondTask));
+        when(taskRepository.findAllByProjectId(projectId, pageable)).thenReturn(page);
         when(taskMapper.toDto(firstTask)).thenReturn(firstDto);
         when(taskMapper.toDto(secondTask)).thenReturn(secondDto);
 
-        List<TaskResponseDto> actual = taskService.getAllTasksById(projectId);
+        Page<TaskResponseDto> actual = taskService.getAllTasksById(projectId, pageable);
 
-        assertThat(actual).containsExactly(firstDto, secondDto);
+        assertThat(actual.getContent()).containsExactly(firstDto, secondDto);
     }
 
     @Test

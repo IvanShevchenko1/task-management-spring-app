@@ -1,13 +1,14 @@
 package org.shevchenko.taskmanagementspringapp.service;
 
-import java.util.List;
 import org.shevchenko.taskmanagementspringapp.dto.comment.CommentCreateRequestDto;
 import org.shevchenko.taskmanagementspringapp.dto.comment.CommentResponseDto;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface CommentService {
     CommentResponseDto addComment(CommentCreateRequestDto requestDto);
 
-    List<CommentResponseDto> getCommentsByTaskId(Long taskId);
+    Page<CommentResponseDto> getCommentsByTaskId(Long taskId, Pageable pageable);
 
     void deleteComment(Long id);
 }

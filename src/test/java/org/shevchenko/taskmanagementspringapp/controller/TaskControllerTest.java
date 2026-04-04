@@ -1,92 +1,216 @@
 package org.shevchenko.taskmanagementspringapp.controller;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.util.List;
-import java.util.Set;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.SneakyThrows;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.shevchenko.taskmanagementspringapp.dto.label.AssignLabelsToTaskRequestDto;
-import org.shevchenko.taskmanagementspringapp.dto.label.LabelResponseDto;
-import org.shevchenko.taskmanagementspringapp.dto.task.TaskCreateRequestDto;
 import org.shevchenko.taskmanagementspringapp.dto.task.TaskResponseDto;
-import org.shevchenko.taskmanagementspringapp.dto.task.TaskUpdateRequestDto;
-import org.shevchenko.taskmanagementspringapp.service.LabelService;
-import org.shevchenko.taskmanagementspringapp.service.TaskService;
-import org.shevchenko.taskmanagementspringapp.support.TestDataFactory;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
+import org.shevchenko.taskmanagementspringapp.util.TestUtil;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
+import org.springframework.security.test.context.support.WithUserDetails;
+import org.springframework.test.context.jdbc.Sql;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
-@ExtendWith(MockitoExtension.class)
+import javax.sql.DataSource;
+import java.sql.Connection;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureMockMvc(addFilters = true)
 class TaskControllerTest {
-    @Mock
-    private TaskService taskService;
-    @Mock
-    private LabelService labelService;
-    @InjectMocks
-    private TaskController taskController;
+    @Autowired
+    private MockMvc mockMvc;
 
-    @Test
-    void createTask_shouldDelegateToService() {
-        TaskCreateRequestDto requestDto = TestDataFactory.taskCreateRequest();
-        TaskResponseDto responseDto = TestDataFactory.taskResponse(1L, 9L);
-        when(taskService.createTask(9L, requestDto)).thenReturn(responseDto);
+    @Autowired
+    private ObjectMapper objectMapper;
 
-        assertThat(taskController.createTask(9L, requestDto)).isEqualTo(responseDto);
-        verify(taskService).createTask(9L, requestDto);
+    @Autowired
+    private DataSource dataSource;
+
+    @AfterEach
+    void cleanup() {
+        teardown(dataSource);
+    }
+
+    @SneakyThrows
+    static void teardown(DataSource dataSource) {
+        try (Connection con = dataSource.getConnection()) {
+            con.setAutoCommit(true);
+            ScriptUtils.executeSqlScript(con,
+                    new ClassPathResource("database/common/delete_test_data.sql"));
+        }
     }
 
     @Test
-    void getAllTasks_shouldDelegateToService() {
-        List<TaskResponseDto> responses = List.of(TestDataFactory.taskResponse(1L, 9L));
-        when(taskService.getAllTasksById(9L)).thenReturn(responses);
-
-        assertThat(taskController.getAllTasks(9L)).isEqualTo(responses);
+    @DisplayName("GET /projects/{projectId}/tasks without authentication -> 401 Unauthorized")
+    void getAll_Unauthenticated_Returns401() throws Exception {
+        mockMvc.perform(get("/projects/{projectId}/tasks", 1L))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
-    void getTaskById_shouldDelegateToService() {
-        TaskResponseDto responseDto = TestDataFactory.taskResponse(1L, 9L);
-        when(taskService.getTaskById(1L)).thenReturn(responseDto);
+    @DisplayName("POST /projects/{projectId}/tasks with USER authority -> 201 Created")
+    @WithUserDetails(TestUtil.USER_EMAIL)
+    @Sql(scripts = {
+            "classpath:database/common/insert_test_users.sql",
+            "classpath:database/common/insert_test_projects_tasks_labels_comments.sql"
+    }, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void create_WithUser_ReturnsCreated() throws Exception {
+        MvcResult result = mockMvc.perform(post("/projects/{projectId}/tasks", 1L)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(TestUtil.validTaskCreateRequest())))
+                .andExpect(status().isCreated())
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andReturn();
 
-        assertThat(taskController.getTaskById(1L)).isEqualTo(responseDto);
+        TaskResponseDto response = objectMapper.readValue(
+                result.getResponse().getContentAsString(), TaskResponseDto.class);
+
+        assertEquals("New Task", response.name());
+        assertEquals(1L, response.projectId());
     }
 
     @Test
-    void updateTask_shouldDelegateToService() {
-        TaskUpdateRequestDto requestDto = TestDataFactory.taskUpdateRequest();
-        TaskResponseDto responseDto = TestDataFactory.taskResponse(1L, 9L);
-        when(taskService.updateTask(1L, requestDto)).thenReturn(responseDto);
-
-        assertThat(taskController.updateTask(1L, requestDto)).isEqualTo(responseDto);
+    @DisplayName("POST /projects/{projectId}/tasks with invalid body -> 400 Bad Request")
+    @WithUserDetails(TestUtil.USER_EMAIL)
+    @Sql(scripts = {
+            "classpath:database/common/insert_test_users.sql",
+            "classpath:database/common/insert_test_projects_tasks_labels_comments.sql"
+    }, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void create_WithInvalidBody_ReturnsBadRequest() throws Exception {
+        mockMvc.perform(post("/projects/{projectId}/tasks", 1L)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(TestUtil.invalidTaskCreateRequest())))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void deleteTask_shouldDelegateToService() {
-        taskController.deleteTask(1L);
-        verify(taskService).deleteTask(1L);
+    @DisplayName("GET /projects/{projectId}/tasks with USER authority -> 200 OK")
+    @WithUserDetails(TestUtil.USER_EMAIL)
+    @Sql(scripts = {
+            "classpath:database/common/insert_test_users.sql",
+            "classpath:database/common/insert_test_projects_tasks_labels_comments.sql"
+    }, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void getAll_WithUser_ReturnsOk() throws Exception {
+        MvcResult result = mockMvc.perform(get("/projects/{projectId}/tasks", 1L)
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andReturn();
+
+        JsonNode root = objectMapper.readTree(result.getResponse().getContentAsString());
+        JsonNode contentNode = root.get("content");
+
+        assertTrue(contentNode.isArray());
+        assertFalse(contentNode.isEmpty());
+        assertEquals("Existing Task", contentNode.get(0).get("name").asText());
     }
 
     @Test
-    void assignLabels_shouldDelegateToLabelService() {
-        AssignLabelsToTaskRequestDto requestDto = new AssignLabelsToTaskRequestDto(Set.of(1L, 2L));
-        List<LabelResponseDto> response = List.of(TestDataFactory.labelResponse(1L));
-        when(labelService.assignToTask(11L, Set.of(1L, 2L))).thenReturn(response);
+    @DisplayName("GET /projects/{projectId}/tasks/{taskId} with USER authority -> 200 OK")
+    @WithUserDetails(TestUtil.USER_EMAIL)
+    @Sql(scripts = {
+            "classpath:database/common/insert_test_users.sql",
+            "classpath:database/common/insert_test_projects_tasks_labels_comments.sql"
+    }, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void getById_WithUser_ReturnsOk() throws Exception {
+        MvcResult result = mockMvc.perform(get("/projects/{projectId}/tasks/{taskId}", 1L, 1L))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andReturn();
 
-        assertThat(taskController.assignLabels(11L, requestDto)).isEqualTo(response);
+        TaskResponseDto response = objectMapper.readValue(
+                result.getResponse().getContentAsString(), TaskResponseDto.class);
+
+        assertEquals(1L, response.id());
+        assertEquals("Existing Task", response.name());
     }
 
     @Test
-    void createTask_shouldHaveCreatedStatusAnnotation() throws NoSuchMethodException {
-        ResponseStatus responseStatus = TaskController.class
-                .getMethod("createTask", Long.class, TaskCreateRequestDto.class)
-                .getAnnotation(ResponseStatus.class);
+    @DisplayName("PUT /projects/{projectId}/tasks/{id} with USER authority -> 200 OK")
+    @WithUserDetails(TestUtil.USER_EMAIL)
+    @Sql(scripts = {
+            "classpath:database/common/insert_test_users.sql",
+            "classpath:database/common/insert_test_projects_tasks_labels_comments.sql"
+    }, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void update_WithUser_ReturnsOk() throws Exception {
+        MvcResult result = mockMvc.perform(put("/projects/{projectId}/tasks/{id}", 1L, 1L)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(TestUtil.validTaskUpdateRequest())))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andReturn();
 
-        assertThat(responseStatus.value()).isEqualTo(HttpStatus.CREATED);
+        TaskResponseDto response = objectMapper.readValue(
+                result.getResponse().getContentAsString(), TaskResponseDto.class);
+
+        assertEquals("Updated Task", response.name());
+        assertEquals("IN_PROGRESS", response.status().name());
+    }
+
+    @Test
+    @DisplayName("DELETE /projects/{projectId}/tasks/{id} with USER authority -> 204 No Content")
+    @WithUserDetails(TestUtil.USER_EMAIL)
+    @Sql(scripts = {
+            "classpath:database/common/insert_test_users.sql",
+            "classpath:database/common/insert_test_projects_tasks_labels_comments.sql"
+    }, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void delete_WithUser_ReturnsNoContent() throws Exception {
+        mockMvc.perform(delete("/projects/{projectId}/tasks/{id}", 1L, 1L))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @DisplayName("PUT /projects/{projectId}/tasks/{taskId}/labels with USER authority -> 200 OK")
+    @WithUserDetails(TestUtil.USER_EMAIL)
+    @Sql(scripts = {
+            "classpath:database/common/insert_test_users.sql",
+            "classpath:database/common/insert_test_projects_tasks_labels_comments.sql"
+    }, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void assignLabels_WithUser_ReturnsOk() throws Exception {
+        mockMvc.perform(put("/projects/{projectId}/tasks/{taskId}/labels", 1L, 1L)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(TestUtil.validAssignLabelsRequest())))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /projects/{projectId}/tasks/{taskId}/labels with USER authority -> 200 OK")
+    @WithUserDetails(TestUtil.USER_EMAIL)
+    @Sql(scripts = {
+            "classpath:database/common/insert_test_users.sql",
+            "classpath:database/common/insert_test_projects_tasks_labels_comments.sql"
+    }, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void getLabelsByTaskId_WithUser_ReturnsOk() throws Exception {
+        MvcResult result = mockMvc.perform(get("/projects/{projectId}/tasks/{taskId}/labels", 1L, 1L)
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andReturn();
+
+        JsonNode root = objectMapper.readTree(result.getResponse().getContentAsString());
+        JsonNode contentNode = root.get("content");
+
+        assertTrue(contentNode.isArray());
+        assertFalse(contentNode.isEmpty());
+        assertEquals("Urgent", contentNode.get(0).get("name").asText());
     }
 }
