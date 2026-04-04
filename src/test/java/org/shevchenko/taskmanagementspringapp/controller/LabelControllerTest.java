@@ -1,111 +1,155 @@
 package org.shevchenko.taskmanagementspringapp.controller;
 
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.SneakyThrows;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.shevchenko.taskmanagementspringapp.dto.label.LabelResponseDto;
+import org.shevchenko.taskmanagementspringapp.util.TestUtil;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
+import org.springframework.security.test.context.support.WithUserDetails;
+import org.springframework.test.context.jdbc.Sql;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
+import javax.sql.DataSource;
+import java.sql.Connection;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.Test;
-import org.shevchenko.taskmanagementspringapp.config.SecurityConfig;
-import org.shevchenko.taskmanagementspringapp.security.JwtAuthenticationFilter;
-import org.shevchenko.taskmanagementspringapp.service.LabelService;
-import org.shevchenko.taskmanagementspringapp.support.TestDataFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-
-@WebMvcTest(LabelController.class)
-@Import(SecurityConfig.class)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureMockMvc(addFilters = true)
 class LabelControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockitoBean
-    private LabelService labelService;
+    @Autowired
+    private DataSource dataSource;
 
-    @MockitoBean
-    private JwtAuthenticationFilter jwtAuthenticationFilter;
+    @AfterEach
+    void cleanup() {
+        teardown(dataSource);
+    }
 
-    @MockitoBean
-    private UserDetailsService userDetailsService;
-
-    @Test
-    @WithMockUser(authorities = "USER")
-    void create_shouldReturnCreatedLabel() throws Exception {
-        var requestDto = TestDataFactory.labelCreateRequest();
-        var responseDto = TestDataFactory.labelResponse(1L);
-
-        when(labelService.create(requestDto)).thenReturn(responseDto);
-
-        mockMvc.perform(post("/labels")
-                        .with(csrf())
-                        .contentType("application/json")
-                        .content(objectMapper.writeValueAsString(requestDto)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.name").value("Backend"))
-                .andExpect(jsonPath("$.color").value("#2563EB"));
-
-        verify(labelService).create(requestDto);
+    @SneakyThrows
+    static void teardown(DataSource dataSource) {
+        try (Connection con = dataSource.getConnection()) {
+            con.setAutoCommit(true);
+            ScriptUtils.executeSqlScript(con,
+                    new ClassPathResource("database/common/delete_test_data.sql"));
+        }
     }
 
     @Test
-    @WithMockUser(authorities = "USER")
-    void getAll_shouldReturnLabels() throws Exception {
-        var response = java.util.List.of(TestDataFactory.labelResponse(1L));
-        when(labelService.getAll()).thenReturn(response);
-
+    @DisplayName("GET /labels without authentication -> 401 Unauthorized")
+    void getAll_Unauthenticated_Returns401() throws Exception {
         mockMvc.perform(get("/labels"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1))
-                .andExpect(jsonPath("$[0].name").value("Backend"));
-
-        verify(labelService).getAll();
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
-    @WithMockUser(authorities = "USER")
-    void update_shouldReturnUpdatedLabel() throws Exception {
-        var requestDto = TestDataFactory.labelCreateRequest();
-        var responseDto = TestDataFactory.labelResponse(1L);
-
-        when(labelService.update(1L, requestDto)).thenReturn(responseDto);
-
-        mockMvc.perform(put("/labels/1")
-                        .with(csrf())
+    @DisplayName("POST /labels with USER authority -> 201 Created")
+    @WithUserDetails(TestUtil.USER_EMAIL)
+    @Sql(scripts = "classpath:database/common/insert_test_users.sql",
+            executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void create_WithUser_ReturnsCreated() throws Exception {
+        MvcResult result = mockMvc.perform(post("/labels")
                         .contentType("application/json")
-                        .content(objectMapper.writeValueAsString(requestDto)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.name").value("Backend"))
-                .andExpect(jsonPath("$.color").value("#2563EB"));
+                        .content(objectMapper.writeValueAsString(TestUtil.validLabelRequest())))
+                .andExpect(status().isCreated())
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andReturn();
 
-        verify(labelService).update(1L, requestDto);
+        LabelResponseDto response = objectMapper.readValue(
+                result.getResponse().getContentAsString(), LabelResponseDto.class);
+
+        assertEquals("Bug", response.name());
+        assertEquals("#FF0000", response.color());
     }
 
     @Test
-    @WithMockUser(authorities = "USER")
-    void delete_shouldReturnNoContent() throws Exception {
-        doNothing().when(labelService).delete(1L);
+    @DisplayName("POST /labels with invalid body -> 400 Bad Request")
+    @WithUserDetails(TestUtil.USER_EMAIL)
+    @Sql(scripts = "classpath:database/common/insert_test_users.sql",
+            executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void create_WithInvalidBody_ReturnsBadRequest() throws Exception {
+        mockMvc.perform(post("/labels")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(TestUtil.invalidLabelRequest())))
+                .andExpect(status().isBadRequest());
+    }
 
-        mockMvc.perform(delete("/labels/1").with(csrf()))
+    @Test
+    @DisplayName("GET /labels with USER authority -> 200 OK")
+    @WithUserDetails(TestUtil.USER_EMAIL)
+    @Sql(scripts = {
+            "classpath:database/common/insert_test_users.sql",
+            "classpath:database/common/insert_test_projects_tasks_labels_comments.sql"
+    }, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void getAll_WithUser_ReturnsOk() throws Exception {
+        MvcResult result = mockMvc.perform(get("/labels")
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andReturn();
+
+        JsonNode root = objectMapper.readTree(result.getResponse().getContentAsString());
+        JsonNode contentNode = root.get("content");
+
+        assertTrue(contentNode.isArray());
+        assertFalse(contentNode.isEmpty());
+        assertEquals("Urgent", contentNode.get(0).get("name").asText());
+    }
+
+    @Test
+    @DisplayName("PUT /labels/{id} with USER authority -> 200 OK")
+    @WithUserDetails(TestUtil.USER_EMAIL)
+    @Sql(scripts = {
+            "classpath:database/common/insert_test_users.sql",
+            "classpath:database/common/insert_test_projects_tasks_labels_comments.sql"
+    }, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void update_WithUser_ReturnsOk() throws Exception {
+        MvcResult result = mockMvc.perform(put("/labels/{id}", 1L)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(TestUtil.validLabelRequest())))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andReturn();
+
+        LabelResponseDto response = objectMapper.readValue(
+                result.getResponse().getContentAsString(), LabelResponseDto.class);
+
+        assertEquals(1L, response.id());
+        assertEquals("Bug", response.name());
+    }
+
+    @Test
+    @DisplayName("DELETE /labels/{id} with USER authority -> 204 No Content")
+    @WithUserDetails(TestUtil.USER_EMAIL)
+    @Sql(scripts = {
+            "classpath:database/common/insert_test_users.sql",
+            "classpath:database/common/insert_test_projects_tasks_labels_comments.sql"
+    }, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void delete_WithUser_ReturnsNoContent() throws Exception {
+        mockMvc.perform(delete("/labels/{id}", 1L))
                 .andExpect(status().isNoContent());
-
-        verify(labelService).delete(1L);
     }
 }

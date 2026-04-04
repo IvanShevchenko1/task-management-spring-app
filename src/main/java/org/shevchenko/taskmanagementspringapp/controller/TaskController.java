@@ -3,7 +3,6 @@ package org.shevchenko.taskmanagementspringapp.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.shevchenko.taskmanagementspringapp.dto.label.AssignLabelsToTaskRequestDto;
 import org.shevchenko.taskmanagementspringapp.dto.label.LabelResponseDto;
@@ -94,7 +93,7 @@ public class TaskController {
     @GetMapping("/{taskId}/labels")
     public Page<LabelResponseDto> getLabelsByTaskId(
             @PathVariable Long taskId,
-            Pageable pageable){
+            Pageable pageable) {
         return labelService.getLabelsByTaskId(taskId, pageable);
     }
 }

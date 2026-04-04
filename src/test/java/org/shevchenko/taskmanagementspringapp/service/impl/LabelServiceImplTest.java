@@ -26,7 +26,11 @@ import org.shevchenko.taskmanagementspringapp.model.User;
 import org.shevchenko.taskmanagementspringapp.repository.LabelRepository;
 import org.shevchenko.taskmanagementspringapp.repository.TaskRepository;
 import org.shevchenko.taskmanagementspringapp.service.UserService;
-import org.shevchenko.taskmanagementspringapp.support.TestDataFactory;
+import org.shevchenko.taskmanagementspringapp.util.TestDataFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 class LabelServiceImplTest {
@@ -62,20 +66,22 @@ class LabelServiceImplTest {
 
     @Test
     void getAll_shouldReturnOnlyAuthenticatedUsersLabels() {
+        Pageable pageable = PageRequest.of(0, 10);
         User user = TestDataFactory.standardUser(1L);
         Label first = TestDataFactory.label(1L, user);
         Label second = TestDataFactory.label(2L, user);
         LabelResponseDto firstDto = TestDataFactory.labelResponse(1L);
         LabelResponseDto secondDto = TestDataFactory.labelResponse(2L);
+        Page<Label> page = new PageImpl<>(List.of(first, second), pageable, 2);
 
         when(userService.getAuthenticatedUserOrThrow()).thenReturn(user);
-        when(labelRepository.findAllByUserId(1L)).thenReturn(List.of(first, second));
+        when(labelRepository.findAllByUserId(1L, pageable)).thenReturn(page);
         when(labelMapper.toDto(first)).thenReturn(firstDto);
         when(labelMapper.toDto(second)).thenReturn(secondDto);
 
-        List<LabelResponseDto> actual = labelService.getAll();
+        Page<LabelResponseDto> actual = labelService.getAll(pageable);
 
-        assertThat(actual).containsExactly(firstDto, secondDto);
+        assertThat(actual.getContent()).containsExactly(firstDto, secondDto);
     }
 
     @Test
@@ -116,19 +122,15 @@ class LabelServiceImplTest {
         Task task = TestDataFactory.task(10L, project);
         Label first = TestDataFactory.label(1L, owner);
         Label second = TestDataFactory.label(2L, owner);
-        LabelResponseDto firstDto = TestDataFactory.labelResponse(1L);
-        LabelResponseDto secondDto = TestDataFactory.labelResponse(2L);
 
         when(userService.getAuthenticatedUserOrThrow()).thenReturn(owner);
         when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
         when(labelRepository.findAllByIdInAndUserId(Set.of(1L, 2L), 1L)).thenReturn(List.of(first, second));
         when(taskRepository.save(task)).thenReturn(task);
-        when(labelMapper.toDto(first)).thenReturn(firstDto);
-        when(labelMapper.toDto(second)).thenReturn(secondDto);
 
-        List<LabelResponseDto> actual = labelService.assignToTask(10L, Set.of(1L, 2L));
+        labelService.assignToTask(10L, Set.of(1L, 2L));
 
-        assertThat(actual).containsExactlyInAnyOrder(firstDto, secondDto);
+        assertThat(task.getLabels()).containsExactlyInAnyOrder(first, second);
         verify(taskRepository).save(task);
     }
 
@@ -161,5 +163,21 @@ class LabelServiceImplTest {
         assertThatThrownBy(() -> labelService.assignToTask(10L, Set.of(1L, 2L)))
                 .isInstanceOf(EntityNotFoundException.class)
                 .hasMessage("One or more labels were not found");
+    }
+
+    @Test
+    void getLabelsByTaskId_shouldReturnPagedLabels() {
+        Pageable pageable = PageRequest.of(0, 10);
+        User user = TestDataFactory.standardUser(1L);
+        Label label = TestDataFactory.label(1L, user);
+        LabelResponseDto dto = TestDataFactory.labelResponse(1L);
+        Page<Label> page = new PageImpl<>(List.of(label), pageable, 1);
+
+        when(labelRepository.findAllByTasksId(10L, pageable)).thenReturn(page);
+        when(labelMapper.toDto(label)).thenReturn(dto);
+
+        Page<LabelResponseDto> actual = labelService.getLabelsByTaskId(10L, pageable);
+
+        assertThat(actual.getContent()).containsExactly(dto);
     }
 }

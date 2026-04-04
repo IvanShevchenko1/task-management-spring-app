@@ -1,4 +1,4 @@
-package org.shevchenko.taskmanagementspringapp.support;
+package org.shevchenko.taskmanagementspringapp.util;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;

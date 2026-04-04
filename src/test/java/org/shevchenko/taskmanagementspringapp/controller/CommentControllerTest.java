@@ -1,102 +1,136 @@
 package org.shevchenko.taskmanagementspringapp.controller;
 
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.SneakyThrows;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.shevchenko.taskmanagementspringapp.dto.comment.CommentResponseDto;
+import org.shevchenko.taskmanagementspringapp.util.TestUtil;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
+import org.springframework.security.test.context.support.WithUserDetails;
+import org.springframework.test.context.jdbc.Sql;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
+import javax.sql.DataSource;
+import java.sql.Connection;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import org.junit.jupiter.api.Test;
-import org.shevchenko.taskmanagementspringapp.config.SecurityConfig;
-import org.shevchenko.taskmanagementspringapp.security.JwtAuthenticationFilter;
-import org.shevchenko.taskmanagementspringapp.service.CommentService;
-import org.shevchenko.taskmanagementspringapp.support.TestDataFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-@WebMvcTest(CommentController.class)
-@Import(SecurityConfig.class)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureMockMvc(addFilters = true)
 class CommentControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockitoBean
-    private CommentService commentService;
+    @Autowired
+    private DataSource dataSource;
 
-    @MockitoBean
-    private JwtAuthenticationFilter jwtAuthenticationFilter;
+    @AfterEach
+    void cleanup() {
+        teardown(dataSource);
+    }
 
-    @MockitoBean
-    private UserDetailsService userDetailsService;
+    @SneakyThrows
+    static void teardown(DataSource dataSource) {
+        try (Connection con = dataSource.getConnection()) {
+            con.setAutoCommit(true);
+            ScriptUtils.executeSqlScript(con,
+                    new ClassPathResource("database/common/delete_test_data.sql"));
+        }
+    }
 
     @Test
-    void addComment_shouldReturnUnauthorizedWithoutAuthentication() throws Exception {
-        mockMvc.perform(post("/comments")
-                        .with(csrf())
-                        .contentType("application/json")
-                        .content(objectMapper.writeValueAsString(
-                                TestDataFactory.commentCreateRequest(10L))))
+    @DisplayName("GET /comments without authentication -> 401 Unauthorized")
+    void getComments_Unauthenticated_Returns401() throws Exception {
+        mockMvc.perform(get("/comments").param("taskId", "1"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
-    @WithMockUser(authorities = "USER")
-    void addComment_shouldReturnCreatedComment() throws Exception {
-        var requestDto = TestDataFactory.commentCreateRequest(10L);
-        var responseDto = TestDataFactory.commentResponse(1L, 10L, 7L);
-
-        when(commentService.addComment(requestDto)).thenReturn(responseDto);
-
-        mockMvc.perform(post("/comments")
-                        .with(csrf())
+    @DisplayName("POST /comments with USER authority -> 201 Created")
+    @WithUserDetails(TestUtil.USER_EMAIL)
+    @Sql(scripts = {
+            "classpath:database/common/insert_test_users.sql",
+            "classpath:database/common/insert_test_projects_tasks_labels_comments.sql"
+    }, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void addComment_WithUser_ReturnsCreated() throws Exception {
+        MvcResult result = mockMvc.perform(post("/comments")
                         .contentType("application/json")
-                        .content(objectMapper.writeValueAsString(requestDto)))
+                        .content(objectMapper.writeValueAsString(TestUtil.validCommentRequest())))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.taskId").value(10))
-                .andExpect(jsonPath("$.userId").value(7))
-                .andExpect(jsonPath("$.text").value("Looks good"));
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andReturn();
 
-        verify(commentService).addComment(requestDto);
+        CommentResponseDto response = objectMapper.readValue(
+                result.getResponse().getContentAsString(), CommentResponseDto.class);
+
+        assertEquals(1L, response.taskId());
+        assertEquals(2L, response.userId());
+        assertEquals("This is a test comment", response.text());
     }
 
     @Test
-    @WithMockUser(authorities = "USER")
-    void getCommentsByTaskId_shouldReturnComments() throws Exception {
-        var response = java.util.List.of(TestDataFactory.commentResponse(1L, 10L, 7L));
-        when(commentService.getCommentsByTaskId(10L)).thenReturn(response);
+    @DisplayName("POST /comments with invalid body -> 400 Bad Request")
+    @WithUserDetails(TestUtil.USER_EMAIL)
+    @Sql(scripts = "classpath:database/common/insert_test_users.sql",
+            executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void addComment_WithInvalidBody_ReturnsBadRequest() throws Exception {
+        mockMvc.perform(post("/comments")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(TestUtil.invalidCommentRequest())))
+                .andExpect(status().isBadRequest());
+    }
 
-        mockMvc.perform(get("/comments").param("taskId", "10"))
+    @Test
+    @DisplayName("GET /comments with USER authority -> 200 OK")
+    @WithUserDetails(TestUtil.USER_EMAIL)
+    @Sql(scripts = {
+            "classpath:database/common/insert_test_users.sql",
+            "classpath:database/common/insert_test_projects_tasks_labels_comments.sql"
+    }, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void getComments_WithUser_ReturnsOk() throws Exception {
+        MvcResult result = mockMvc.perform(get("/comments")
+                        .param("taskId", "1")
+                        .param("page", "0")
+                        .param("size", "20"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1))
-                .andExpect(jsonPath("$[0].taskId").value(10))
-                .andExpect(jsonPath("$[0].userId").value(7));
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andReturn();
 
-        verify(commentService).getCommentsByTaskId(10L);
+        JsonNode root = objectMapper.readTree(result.getResponse().getContentAsString());
+        JsonNode contentNode = root.get("content");
+
+        assertTrue(contentNode.isArray());
+        assertFalse(contentNode.isEmpty());
+        assertEquals("Existing comment", contentNode.get(0).get("text").asText());
     }
 
     @Test
-    @WithMockUser(authorities = "USER")
-    void deleteComment_shouldReturnNoContent() throws Exception {
-        doNothing().when(commentService).deleteComment(9L);
-
-        mockMvc.perform(delete("/comments/9").with(csrf()))
+    @DisplayName("DELETE /comments/{id} by owner -> 204 No Content")
+    @WithUserDetails(TestUtil.USER_EMAIL)
+    @Sql(scripts = {
+            "classpath:database/common/insert_test_users.sql",
+            "classpath:database/common/insert_test_projects_tasks_labels_comments.sql"
+    }, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void deleteComment_ByOwner_ReturnsNoContent() throws Exception {
+        mockMvc.perform(delete("/comments/{id}", 1L))
                 .andExpect(status().isNoContent());
-
-        verify(commentService).deleteComment(9L);
     }
 }

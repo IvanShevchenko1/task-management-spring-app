@@ -1,130 +1,165 @@
 package org.shevchenko.taskmanagementspringapp.controller;
 
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.SneakyThrows;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.shevchenko.taskmanagementspringapp.dto.project.ProjectResponseDto;
+import org.shevchenko.taskmanagementspringapp.util.TestUtil;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
+import org.springframework.security.test.context.support.WithUserDetails;
+import org.springframework.test.context.jdbc.Sql;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
+import javax.sql.DataSource;
+import java.sql.Connection;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.List;
-import org.junit.jupiter.api.Test;
-import org.shevchenko.taskmanagementspringapp.config.SecurityConfig;
-import org.shevchenko.taskmanagementspringapp.security.JwtAuthenticationFilter;
-import org.shevchenko.taskmanagementspringapp.service.ProjectService;
-import org.shevchenko.taskmanagementspringapp.support.TestDataFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-
-@WebMvcTest(ProjectController.class)
-@Import(SecurityConfig.class)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureMockMvc(addFilters = true)
 class ProjectControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockitoBean
-    private ProjectService projectService;
+    @Autowired
+    private DataSource dataSource;
 
-    @MockitoBean
-    private JwtAuthenticationFilter jwtAuthenticationFilter;
+    @AfterEach
+    void cleanup() {
+        teardown(dataSource);
+    }
 
-    @MockitoBean
-    private UserDetailsService userDetailsService;
+    @SneakyThrows
+    static void teardown(DataSource dataSource) {
+        try (Connection con = dataSource.getConnection()) {
+            con.setAutoCommit(true);
+            ScriptUtils.executeSqlScript(con,
+                    new ClassPathResource("database/common/delete_test_data.sql"));
+        }
+    }
 
     @Test
-    @WithMockUser(authorities = "USER")
-    void createProject_shouldReturnCreatedProject() throws Exception {
-        var requestDto = TestDataFactory.projectCreateRequest();
-        var responseDto = TestDataFactory.projectResponse(1L, 5L);
+    @DisplayName("GET /projects without authentication -> 401 Unauthorized")
+    void getAll_Unauthenticated_Returns401() throws Exception {
+        mockMvc.perform(get("/projects"))
+                .andExpect(status().isUnauthorized());
+    }
 
-        when(projectService.createProject(requestDto)).thenReturn(responseDto);
-
-        mockMvc.perform(post("/projects")
-                        .with(csrf())
+    @Test
+    @DisplayName("POST /projects with USER authority -> 201 Created")
+    @WithUserDetails(TestUtil.USER_EMAIL)
+    @Sql(scripts = "classpath:database/common/insert_test_users.sql",
+            executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void create_WithUser_ReturnsCreated() throws Exception {
+        MvcResult result = mockMvc.perform(post("/projects")
                         .contentType("application/json")
-                        .content(objectMapper.writeValueAsString(requestDto)))
+                        .content(objectMapper.writeValueAsString(TestUtil.validProjectRequest())))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.ownerId").value(5))
-                .andExpect(jsonPath("$.name").value("Task Management API"));
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andReturn();
 
-        verify(projectService).createProject(requestDto);
+        ProjectResponseDto response = objectMapper.readValue(
+                result.getResponse().getContentAsString(), ProjectResponseDto.class);
+
+        assertEquals("New Project", response.name());
+        assertEquals(2L, response.owner_id());
     }
 
     @Test
-    @WithMockUser(authorities = "USER")
-    void getAllProjectsForAuthenticatedUser_shouldReturnPage() throws Exception {
-        var pageable = PageRequest.of(0, 5);
-        var page = new PageImpl<>(List.of(TestDataFactory.projectResponse(1L, 5L)), pageable, 1);
-
-        when(projectService.getAllProjectsForAuthenticatedUser(org.mockito.ArgumentMatchers.any())).thenReturn(page);
-
-        mockMvc.perform(get("/projects")
+    @DisplayName("GET /projects with USER authority -> 200 OK")
+    @WithUserDetails(TestUtil.USER_EMAIL)
+    @Sql(scripts = {
+            "classpath:database/common/insert_test_users.sql",
+            "classpath:database/common/insert_test_projects_tasks_labels_comments.sql"
+    }, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void getAll_WithUser_ReturnsOnlyOwnedProjects() throws Exception {
+        MvcResult result = mockMvc.perform(get("/projects")
                         .param("page", "0")
-                        .param("size", "5"))
+                        .param("size", "20"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].id").value(1))
-                .andExpect(jsonPath("$.content[0].ownerId").value(5))
-                .andExpect(jsonPath("$.content[0].name").value("Task Management API"));
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andReturn();
+
+        JsonNode root = objectMapper.readTree(result.getResponse().getContentAsString());
+        JsonNode contentNode = root.get("content");
+
+        assertTrue(contentNode.isArray());
+        assertFalse(contentNode.isEmpty());
+        assertEquals(1, contentNode.size());
+        assertEquals("User Project", contentNode.get(0).get("name").asText());
     }
 
     @Test
-    @WithMockUser(authorities = "USER")
-    void getProjectById_shouldReturnProject() throws Exception {
-        var responseDto = TestDataFactory.projectResponse(4L, 5L);
-        when(projectService.getProjectById(4L)).thenReturn(responseDto);
-
-        mockMvc.perform(get("/projects/4"))
+    @DisplayName("GET /projects/{id} with USER authority -> 200 OK")
+    @WithUserDetails(TestUtil.USER_EMAIL)
+    @Sql(scripts = {
+            "classpath:database/common/insert_test_users.sql",
+            "classpath:database/common/insert_test_projects_tasks_labels_comments.sql"
+    }, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void getById_WithUser_ReturnsOk() throws Exception {
+        MvcResult result = mockMvc.perform(get("/projects/{id}", 1L))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(4))
-                .andExpect(jsonPath("$.ownerId").value(5));
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andReturn();
 
-        verify(projectService).getProjectById(4L);
+        ProjectResponseDto response = objectMapper.readValue(
+                result.getResponse().getContentAsString(), ProjectResponseDto.class);
+
+        assertEquals(1L, response.id());
+        assertEquals("User Project", response.name());
     }
 
     @Test
-    @WithMockUser(authorities = "USER")
-    void updateProjectById_shouldReturnUpdatedProject() throws Exception {
-        var requestDto = TestDataFactory.projectCreateRequest();
-        var responseDto = TestDataFactory.projectResponse(4L, 5L);
-
-        when(projectService.updateProjectById(4L, requestDto)).thenReturn(responseDto);
-
-        mockMvc.perform(put("/projects/4")
-                        .with(csrf())
+    @DisplayName("PUT /projects/{id} with USER authority -> 200 OK")
+    @WithUserDetails(TestUtil.USER_EMAIL)
+    @Sql(scripts = {
+            "classpath:database/common/insert_test_users.sql",
+            "classpath:database/common/insert_test_projects_tasks_labels_comments.sql"
+    }, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void update_WithUser_ReturnsOk() throws Exception {
+        MvcResult result = mockMvc.perform(put("/projects/{id}", 1L)
                         .contentType("application/json")
-                        .content(objectMapper.writeValueAsString(requestDto)))
+                        .content(objectMapper.writeValueAsString(TestUtil.updatedProjectRequest())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(4))
-                .andExpect(jsonPath("$.ownerId").value(5));
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andReturn();
 
-        verify(projectService).updateProjectById(4L, requestDto);
+        ProjectResponseDto response = objectMapper.readValue(
+                result.getResponse().getContentAsString(), ProjectResponseDto.class);
+
+        assertEquals(1L, response.id());
+        assertEquals("Updated Project", response.name());
+        assertEquals("Updated description", response.description());
     }
 
     @Test
-    @WithMockUser(authorities = "USER")
-    void deleteProjectById_shouldReturnNoContent() throws Exception {
-        doNothing().when(projectService).deleteProjectById(4L);
-
-        mockMvc.perform(delete("/projects/4").with(csrf()))
+    @DisplayName("DELETE /projects/{id} with USER authority -> 204 No Content")
+    @WithUserDetails(TestUtil.USER_EMAIL)
+    @Sql(scripts = {
+            "classpath:database/common/insert_test_users.sql",
+            "classpath:database/common/insert_test_projects_tasks_labels_comments.sql"
+    }, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void delete_WithUser_ReturnsNoContent() throws Exception {
+        mockMvc.perform(delete("/projects/{id}", 1L))
                 .andExpect(status().isNoContent());
-
-        verify(projectService).deleteProjectById(4L);
     }
 }

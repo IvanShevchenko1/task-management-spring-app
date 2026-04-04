@@ -1,6 +1,5 @@
 package org.shevchenko.taskmanagementspringapp.service.impl;
 
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.shevchenko.taskmanagementspringapp.dto.comment.CommentCreateRequestDto;
 import org.shevchenko.taskmanagementspringapp.dto.comment.CommentResponseDto;

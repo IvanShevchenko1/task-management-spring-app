@@ -24,7 +24,10 @@ import org.shevchenko.taskmanagementspringapp.model.User;
 import org.shevchenko.taskmanagementspringapp.repository.CommentRepository;
 import org.shevchenko.taskmanagementspringapp.repository.TaskRepository;
 import org.shevchenko.taskmanagementspringapp.service.UserService;
-import org.shevchenko.taskmanagementspringapp.support.TestDataFactory;
+import org.shevchenko.taskmanagementspringapp.util.TestDataFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
@@ -75,7 +78,8 @@ class CommentServiceImplTest {
     }
 
     @Test
-    void getCommentsByTaskId_shouldReturnMappedComments() {
+    void getCommentsByTaskId_shouldReturnMappedPage() {
+        Pageable pageable = PageRequest.of(0, 10);
         User user = TestDataFactory.standardUser(1L);
         Project project = TestDataFactory.project(2L, user);
         Task task = TestDataFactory.task(10L, project);
@@ -83,15 +87,16 @@ class CommentServiceImplTest {
         Comment second = TestDataFactory.comment(2L, task, user);
         CommentResponseDto firstDto = TestDataFactory.commentResponse(1L, 10L, 1L);
         CommentResponseDto secondDto = TestDataFactory.commentResponse(2L, 10L, 1L);
+        Page<Comment> page = new PageImpl<>(List.of(first, second), pageable, 2);
 
         when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
-        when(commentRepository.findAllByTaskIdOrderByTimestampAsc(10L, Pageable.unpaged())).thenReturn(List.of(first, second));
+        when(commentRepository.findAllByTaskIdOrderByTimestampAsc(10L, pageable)).thenReturn(page);
         when(commentMapper.toDto(first)).thenReturn(firstDto);
         when(commentMapper.toDto(second)).thenReturn(secondDto);
 
-        List<CommentResponseDto> actual = commentService.getCommentsByTaskId(10L);
+        Page<CommentResponseDto> actual = commentService.getCommentsByTaskId(10L, pageable);
 
-        assertThat(actual).containsExactly(firstDto, secondDto);
+        assertThat(actual.getContent()).containsExactly(firstDto, secondDto);
     }
 
     @Test
