@@ -15,6 +15,7 @@ import jakarta.persistence.Table;
 import java.time.LocalDate;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
@@ -32,6 +33,7 @@ public class Project {
     @Column(nullable = false)
     private String name;
     private String description;
+    @CreationTimestamp
     @Column(name = "start_date", nullable = false, updatable = false)
     private LocalDate startDate;
     @Column(name = "end_date")
@@ -58,9 +60,6 @@ public class Project {
     void onCreate() {
         if (status == null) {
             status = Status.INITIATED;
-        }
-        if (startDate == null) {
-            startDate = LocalDate.now();
         }
     }
 }

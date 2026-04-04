@@ -8,11 +8,11 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
@@ -41,16 +41,10 @@ public class Attachment {
     @Column(name = "filename", nullable = false, length = 255)
     private String filename;
 
+    @CreationTimestamp
     @Column(name = "upload_date", nullable = false, updatable = false)
     private LocalDateTime uploadDate;
 
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted = false;
-
-    @PrePersist
-    public void prePersist() {
-        if (uploadDate == null) {
-            uploadDate = LocalDateTime.now();
-        }
-    }
 }
