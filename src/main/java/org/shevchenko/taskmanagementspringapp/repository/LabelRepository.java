@@ -14,4 +14,6 @@ public interface LabelRepository extends JpaRepository<Label, Long> {
     Optional<Label> findByIdAndUserId(Long id, Long userId);
 
     List<Label> findAllByIdInAndUserId(Collection<Long> id, Long userId);
+
+    Page<Label> findAllByTasksId(Long taskId, Pageable pageable);
 }

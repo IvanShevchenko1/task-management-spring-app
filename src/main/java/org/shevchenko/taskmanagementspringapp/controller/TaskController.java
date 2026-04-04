@@ -83,10 +83,18 @@ public class TaskController {
 
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @PutMapping("/{taskId}/labels")
-    public List<LabelResponseDto> assignLabels(
+    public void assignLabels(
             @PathVariable Long taskId,
             @RequestBody @Valid AssignLabelsToTaskRequestDto requestDto
     ) {
-        return labelService.assignToTask(taskId, requestDto.labelIds());
+        labelService.assignToTask(taskId, requestDto.labelIds());
+    }
+
+    @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
+    @GetMapping("/{taskId}/labels")
+    public Page<LabelResponseDto> getLabelsByTaskId(
+            @PathVariable Long taskId,
+            Pageable pageable){
+        return labelService.getLabelsByTaskId(taskId, pageable);
     }
 }

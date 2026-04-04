@@ -1,6 +1,5 @@
 package org.shevchenko.taskmanagementspringapp.service;
 
-import java.util.List;
 import java.util.Set;
 import org.shevchenko.taskmanagementspringapp.dto.label.LabelCreateRequestDto;
 import org.shevchenko.taskmanagementspringapp.dto.label.LabelResponseDto;
@@ -16,5 +15,7 @@ public interface LabelService {
 
     void delete(Long id);
 
-    List<LabelResponseDto> assignToTask(Long taskId, Set<Long> labelIds);
+    void assignToTask(Long taskId, Set<Long> labelIds);
+
+    Page<LabelResponseDto> getLabelsByTaskId(Long taskId, Pageable pageable);
 }

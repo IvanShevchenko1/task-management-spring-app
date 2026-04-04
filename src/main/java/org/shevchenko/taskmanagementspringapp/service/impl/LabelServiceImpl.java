@@ -71,7 +71,7 @@ public class LabelServiceImpl implements LabelService {
     }
 
     @Override
-    public List<LabelResponseDto> assignToTask(Long taskId, Set<Long> labelIds) {
+    public void assignToTask(Long taskId, Set<Long> labelIds) {
         User user = userService.getAuthenticatedUserOrThrow();
 
         Task task = taskRepository.findById(taskId)
@@ -93,9 +93,11 @@ public class LabelServiceImpl implements LabelService {
 
         task.setLabels(new HashSet<>(labels));
         taskRepository.save(task);
+    }
 
-        return task.getLabels().stream()
-                .map(labelMapper::toDto)
-                .toList();
+    @Override
+    public Page<LabelResponseDto> getLabelsByTaskId(Long taskId, Pageable pageable) {
+        return labelRepository.findAllByTasksId(taskId, pageable)
+                .map(labelMapper::toDto);
     }
 }
