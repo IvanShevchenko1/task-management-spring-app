@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import lombok.RequiredArgsConstructor;
 import org.shevchenko.taskmanagementspringapp.dto.dropbox.DropboxStoredFile;
+import org.shevchenko.taskmanagementspringapp.exception.DropboxServiceException;
 import org.shevchenko.taskmanagementspringapp.service.DropboxStorageService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -55,7 +56,7 @@ public class DropboxStorageServiceImpl implements DropboxStorageService {
             GetTemporaryLinkResult result = dbxClientV2.files().getTemporaryLink(dropboxPath);
             return result.getLink();
         } catch (DbxException ex) {
-            throw new IllegalStateException("Failed to create Dropbox temporary link", ex);
+            throw new DropboxServiceException("Failed to create Dropbox temporary link");
         }
     }
 
@@ -64,7 +65,7 @@ public class DropboxStorageServiceImpl implements DropboxStorageService {
         try {
             dbxClientV2.files().deleteV2(dropboxPath);
         } catch (DbxException ex) {
-            throw new IllegalStateException("Failed to delete file from Dropbox", ex);
+            throw new DropboxServiceException("Failed to delete file from Dropbox");
         }
     }
 

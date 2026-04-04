@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.shevchenko.taskmanagementspringapp.dto.attachment.AttachmentResponseDto;
 import org.shevchenko.taskmanagementspringapp.dto.dropbox.DropboxStoredFile;
 import org.shevchenko.taskmanagementspringapp.exception.EntityNotFoundException;
+import org.shevchenko.taskmanagementspringapp.exception.ForbiddenOperationException;
 import org.shevchenko.taskmanagementspringapp.mapper.AttachmentMapper;
 import org.shevchenko.taskmanagementspringapp.model.Attachment;
 import org.shevchenko.taskmanagementspringapp.model.Task;
@@ -104,7 +105,9 @@ public class AttachmentServiceImpl implements AttachmentService {
                 .anyMatch(role -> role.getAuthority().equals("ADMIN"));
 
         if (!isOwner && !isAdmin) {
-            throw new RuntimeException("You are not allowed to access attachments for this task");
+            throw new ForbiddenOperationException(
+                    "You are not allowed to access attachments for this task"
+            );
         }
     }
 }

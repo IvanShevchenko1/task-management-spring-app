@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.shevchenko.taskmanagementspringapp.dto.comment.CommentCreateRequestDto;
 import org.shevchenko.taskmanagementspringapp.dto.comment.CommentResponseDto;
 import org.shevchenko.taskmanagementspringapp.exception.EntityNotFoundException;
+import org.shevchenko.taskmanagementspringapp.exception.ForbiddenOperationException;
 import org.shevchenko.taskmanagementspringapp.mapper.CommentMapper;
 import org.shevchenko.taskmanagementspringapp.model.Comment;
 import org.shevchenko.taskmanagementspringapp.model.Task;
@@ -69,7 +70,7 @@ public class CommentServiceImpl implements CommentService {
                 .anyMatch(role -> role.getAuthority().equals("ADMIN"));
 
         if (!isOwner && !isAdmin) {
-            throw new RuntimeException("You are not allowed to delete this comment");
+            throw new ForbiddenOperationException("You are not allowed to delete this comment");
         }
 
         commentRepository.delete(comment);
