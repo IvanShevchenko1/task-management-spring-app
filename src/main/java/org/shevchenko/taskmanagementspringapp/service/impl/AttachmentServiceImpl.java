@@ -105,7 +105,9 @@ public class AttachmentServiceImpl implements AttachmentService {
                 .anyMatch(role -> role.getAuthority().equals("ADMIN"));
 
         if (!isOwner && !isAdmin) {
-            throw new ForbiddenOperationException("You are not allowed to access attachments for this task");
+            throw new ForbiddenOperationException(
+                    "You are not allowed to access attachments for this task"
+            );
         }
     }
 }

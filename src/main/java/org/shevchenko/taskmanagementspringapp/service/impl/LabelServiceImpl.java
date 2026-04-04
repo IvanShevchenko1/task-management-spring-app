@@ -83,7 +83,8 @@ public class LabelServiceImpl implements LabelService {
                 .anyMatch(role -> role.getAuthority().equals("ADMIN"));
 
         if (!isOwner && !isAdmin) {
-            throw new ForbiddenOperationException("You are not allowed to modify labels for this task");
+            throw new ForbiddenOperationException(
+                    "You are not allowed to modify labels for this task");
         }
 
         List<Label> labels = labelRepository.findAllByIdInAndUserId(labelIds, user.getId());
