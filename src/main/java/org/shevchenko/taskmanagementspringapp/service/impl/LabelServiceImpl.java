@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.shevchenko.taskmanagementspringapp.dto.label.LabelCreateRequestDto;
 import org.shevchenko.taskmanagementspringapp.dto.label.LabelResponseDto;
 import org.shevchenko.taskmanagementspringapp.exception.EntityNotFoundException;
+import org.shevchenko.taskmanagementspringapp.exception.ForbiddenOperationException;
 import org.shevchenko.taskmanagementspringapp.mapper.LabelMapper;
 import org.shevchenko.taskmanagementspringapp.model.Label;
 import org.shevchenko.taskmanagementspringapp.model.Task;
@@ -82,7 +83,7 @@ public class LabelServiceImpl implements LabelService {
                 .anyMatch(role -> role.getAuthority().equals("ADMIN"));
 
         if (!isOwner && !isAdmin) {
-            throw new RuntimeException("You are not allowed to modify labels for this task");
+            throw new ForbiddenOperationException("You are not allowed to modify labels for this task");
         }
 
         List<Label> labels = labelRepository.findAllByIdInAndUserId(labelIds, user.getId());
