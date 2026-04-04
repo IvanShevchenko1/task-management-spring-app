@@ -8,11 +8,11 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
@@ -39,16 +39,10 @@ public class Comment {
     @Column(nullable = false, length = 1000)
     private String text;
 
+    @CreationTimestamp
     @Column(name = "timestamp", nullable = false, updatable = false)
     private LocalDateTime timestamp;
 
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted = false;
-
-    @PrePersist
-    public void prePersist() {
-        if (timestamp == null) {
-            timestamp = LocalDateTime.now();
-        }
-    }
 }
