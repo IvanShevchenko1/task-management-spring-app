@@ -1,67 +1,130 @@
 package org.shevchenko.taskmanagementspringapp.controller;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.shevchenko.taskmanagementspringapp.dto.project.ProjectCreateRequestDto;
-import org.shevchenko.taskmanagementspringapp.dto.project.ProjectResponseDto;
+import org.shevchenko.taskmanagementspringapp.config.SecurityConfig;
+import org.shevchenko.taskmanagementspringapp.security.JwtAuthenticationFilter;
 import org.shevchenko.taskmanagementspringapp.service.ProjectService;
 import org.shevchenko.taskmanagementspringapp.support.TestDataFactory;
-import org.springframework.data.domain.Page;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
 
-@ExtendWith(MockitoExtension.class)
+@WebMvcTest(ProjectController.class)
+@Import(SecurityConfig.class)
 class ProjectControllerTest {
-    @Mock
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @MockitoBean
     private ProjectService projectService;
-    @InjectMocks
-    private ProjectController projectController;
+
+    @MockitoBean
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @MockitoBean
+    private UserDetailsService userDetailsService;
 
     @Test
-    void createProject_shouldDelegateToService() {
-        ProjectCreateRequestDto requestDto = TestDataFactory.projectCreateRequest();
-        ProjectResponseDto responseDto = TestDataFactory.projectResponse(1L, 5L);
+    @WithMockUser(authorities = "USER")
+    void createProject_shouldReturnCreatedProject() throws Exception {
+        var requestDto = TestDataFactory.projectCreateRequest();
+        var responseDto = TestDataFactory.projectResponse(1L, 5L);
+
         when(projectService.createProject(requestDto)).thenReturn(responseDto);
 
-        assertThat(projectController.createProject(requestDto)).isEqualTo(responseDto);
+        mockMvc.perform(post("/projects")
+                        .with(csrf())
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(requestDto)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.ownerId").value(5))
+                .andExpect(jsonPath("$.name").value("Task Management API"));
+
+        verify(projectService).createProject(requestDto);
     }
 
     @Test
-    void getAllProjectsForAuthenticatedUser_shouldDelegateToService() {
-        PageRequest pageable = PageRequest.of(0, 5);
-        Page<ProjectResponseDto> page = new PageImpl<>(java.util.List.of(TestDataFactory.projectResponse(1L, 5L)));
-        when(projectService.getAllProjectsForAuthenticatedUser(pageable)).thenReturn(page);
+    @WithMockUser(authorities = "USER")
+    void getAllProjectsForAuthenticatedUser_shouldReturnPage() throws Exception {
+        var pageable = PageRequest.of(0, 5);
+        var page = new PageImpl<>(List.of(TestDataFactory.projectResponse(1L, 5L)), pageable, 1);
 
-        assertThat(projectController.getAllProjectsForAuthenticatedUser(pageable)).isEqualTo(page);
+        when(projectService.getAllProjectsForAuthenticatedUser(org.mockito.ArgumentMatchers.any())).thenReturn(page);
+
+        mockMvc.perform(get("/projects")
+                        .param("page", "0")
+                        .param("size", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(1))
+                .andExpect(jsonPath("$.content[0].ownerId").value(5))
+                .andExpect(jsonPath("$.content[0].name").value("Task Management API"));
     }
 
     @Test
-    void getProjectById_shouldDelegateToService() {
-        ProjectResponseDto responseDto = TestDataFactory.projectResponse(4L, 5L);
+    @WithMockUser(authorities = "USER")
+    void getProjectById_shouldReturnProject() throws Exception {
+        var responseDto = TestDataFactory.projectResponse(4L, 5L);
         when(projectService.getProjectById(4L)).thenReturn(responseDto);
 
-        assertThat(projectController.getProjectById(4L)).isEqualTo(responseDto);
+        mockMvc.perform(get("/projects/4"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(4))
+                .andExpect(jsonPath("$.ownerId").value(5));
+
+        verify(projectService).getProjectById(4L);
     }
 
     @Test
-    void updateProjectById_shouldDelegateToService() {
-        ProjectCreateRequestDto requestDto = TestDataFactory.projectCreateRequest();
-        ProjectResponseDto responseDto = TestDataFactory.projectResponse(4L, 5L);
+    @WithMockUser(authorities = "USER")
+    void updateProjectById_shouldReturnUpdatedProject() throws Exception {
+        var requestDto = TestDataFactory.projectCreateRequest();
+        var responseDto = TestDataFactory.projectResponse(4L, 5L);
+
         when(projectService.updateProjectById(4L, requestDto)).thenReturn(responseDto);
 
-        assertThat(projectController.updateProjectById(4L, requestDto)).isEqualTo(responseDto);
+        mockMvc.perform(put("/projects/4")
+                        .with(csrf())
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(requestDto)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(4))
+                .andExpect(jsonPath("$.ownerId").value(5));
+
+        verify(projectService).updateProjectById(4L, requestDto);
     }
 
     @Test
-    void deleteProjectById_shouldDelegateToService() {
-        projectController.deleteProjectById(4L);
+    @WithMockUser(authorities = "USER")
+    void deleteProjectById_shouldReturnNoContent() throws Exception {
+        doNothing().when(projectService).deleteProjectById(4L);
+
+        mockMvc.perform(delete("/projects/4").with(csrf()))
+                .andExpect(status().isNoContent());
+
         verify(projectService).deleteProjectById(4L);
     }
 }

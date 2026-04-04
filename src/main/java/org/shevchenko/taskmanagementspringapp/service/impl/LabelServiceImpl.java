@@ -15,6 +15,8 @@ import org.shevchenko.taskmanagementspringapp.repository.LabelRepository;
 import org.shevchenko.taskmanagementspringapp.repository.TaskRepository;
 import org.shevchenko.taskmanagementspringapp.service.LabelService;
 import org.shevchenko.taskmanagementspringapp.service.UserService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,12 +41,11 @@ public class LabelServiceImpl implements LabelService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<LabelResponseDto> getAll() {
+    public Page<LabelResponseDto> getAll(Pageable pageable) {
         User user = userService.getAuthenticatedUserOrThrow();
 
-        return labelRepository.findAllByUserId(user.getId()).stream()
-                .map(labelMapper::toDto)
-                .toList();
+        return labelRepository.findAllByUserId(user.getId(), pageable)
+                .map(labelMapper::toDto);
     }
 
     @Override

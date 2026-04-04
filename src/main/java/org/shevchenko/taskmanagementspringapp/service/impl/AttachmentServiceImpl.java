@@ -1,7 +1,6 @@
 package org.shevchenko.taskmanagementspringapp.service.impl;
 
 import java.io.IOException;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.shevchenko.taskmanagementspringapp.dto.attachment.AttachmentResponseDto;
 import org.shevchenko.taskmanagementspringapp.dto.dropbox.DropboxStoredFile;
@@ -15,6 +14,8 @@ import org.shevchenko.taskmanagementspringapp.repository.TaskRepository;
 import org.shevchenko.taskmanagementspringapp.service.AttachmentService;
 import org.shevchenko.taskmanagementspringapp.service.DropboxStorageService;
 import org.shevchenko.taskmanagementspringapp.service.UserService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -59,10 +60,11 @@ public class AttachmentServiceImpl implements AttachmentService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<AttachmentResponseDto> getByTaskId(Long taskId) {
+    public Page<AttachmentResponseDto> getByTaskId(Long taskId, Pageable pageable) {
         getAuthorizedTask(taskId);
 
-        return attachmentRepository.findAllByTaskIdOrderByUploadDateDesc(taskId).stream()
+        return attachmentRepository
+                .findAllByTaskIdOrderByUploadDateDesc(taskId, pageable)
                 .map(attachment -> new AttachmentResponseDto(
                         attachment.getId(),
                         attachment.getTask().getId(),
@@ -71,8 +73,7 @@ public class AttachmentServiceImpl implements AttachmentService {
                         attachment.getUploadDate(),
                         dropboxStorageService.createTemporaryDownloadLink(
                                 attachment.getDropboxPath())
-                ))
-                .toList();
+                ));
     }
 
     @Override

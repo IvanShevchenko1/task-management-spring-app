@@ -1,51 +1,108 @@
 package org.shevchenko.taskmanagementspringapp.controller;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.shevchenko.taskmanagementspringapp.dto.user.UserResponseDto;
-import org.shevchenko.taskmanagementspringapp.dto.user.UserUpdateRequestDto;
-import org.shevchenko.taskmanagementspringapp.dto.user.UserUpdateRoleRequestDto;
+import org.shevchenko.taskmanagementspringapp.config.SecurityConfig;
+import org.shevchenko.taskmanagementspringapp.security.JwtAuthenticationFilter;
 import org.shevchenko.taskmanagementspringapp.service.UserService;
 import org.shevchenko.taskmanagementspringapp.support.TestDataFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
 
-@ExtendWith(MockitoExtension.class)
+@WebMvcTest(UserController.class)
+@Import(SecurityConfig.class)
 class UserControllerTest {
-    @Mock
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @MockitoBean
     private UserService userService;
-    @InjectMocks
-    private UserController userController;
+
+    @MockitoBean
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @MockitoBean
+    private UserDetailsService userDetailsService;
 
     @Test
-    void getAuthenticatedUser_shouldDelegateToService() {
-        UserResponseDto responseDto = TestDataFactory.userResponse(7L);
+    @WithMockUser(authorities = "USER")
+    void getAuthenticatedUser_shouldReturnCurrentUser() throws Exception {
+        var responseDto = TestDataFactory.userResponse(7L);
         when(userService.getAuthenticatedUser()).thenReturn(responseDto);
 
-        assertThat(userController.getAuthenticatedUser()).isEqualTo(responseDto);
+        mockMvc.perform(get("/users/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(7))
+                .andExpect(jsonPath("$.email").value("john@example.com"))
+                .andExpect(jsonPath("$.roles[0]").value("USER"));
+
+        verify(userService).getAuthenticatedUser();
     }
 
     @Test
-    void updateAuthenticatedUser_shouldDelegateToService() {
-        UserUpdateRequestDto requestDto = TestDataFactory.userUpdateRequest();
-        UserResponseDto responseDto = TestDataFactory.userResponse(7L);
+    @WithMockUser(authorities = "USER")
+    void updateAuthenticatedUser_shouldReturnUpdatedUser() throws Exception {
+        var requestDto = TestDataFactory.userUpdateRequest();
+        var responseDto = TestDataFactory.userResponse(7L);
+
         when(userService.updateAuthenticatedUser(requestDto)).thenReturn(responseDto);
 
-        assertThat(userController.updateAuthenticatedUser(requestDto)).isEqualTo(responseDto);
+        mockMvc.perform(put("/users/me")
+                        .with(csrf())
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(requestDto)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(7))
+                .andExpect(jsonPath("$.username").value("johnny"));
+
+        verify(userService).updateAuthenticatedUser(requestDto);
     }
 
     @Test
-    void updateRole_shouldDelegateToService() {
-        UserUpdateRoleRequestDto requestDto = TestDataFactory.userUpdateRoleRequest("ADMIN");
-        UserResponseDto responseDto = TestDataFactory.userResponse(7L);
+    @WithMockUser(authorities = "ADMIN")
+    void updateRole_shouldReturnUpdatedUserRole() throws Exception {
+        var requestDto = TestDataFactory.userUpdateRoleRequest("ADMIN");
+        var responseDto = TestDataFactory.userResponse(7L);
+
         when(userService.updateRole(7L, requestDto)).thenReturn(responseDto);
 
-        assertThat(userController.updateRole(7L, requestDto)).isEqualTo(responseDto);
+        mockMvc.perform(put("/users/7/role")
+                        .with(csrf())
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(requestDto)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(7))
+                .andExpect(jsonPath("$.email").value("john@example.com"));
+
         verify(userService).updateRole(7L, requestDto);
+    }
+
+    @Test
+    @WithMockUser(authorities = "USER")
+    void updateRole_shouldReturnForbiddenForNonAdmin() throws Exception {
+        var requestDto = TestDataFactory.userUpdateRoleRequest("ADMIN");
+
+        mockMvc.perform(put("/users/7/role")
+                        .with(csrf())
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(requestDto)))
+                .andExpect(status().isForbidden());
     }
 }

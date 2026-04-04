@@ -3,10 +3,11 @@ package org.shevchenko.taskmanagementspringapp.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.IOException;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.shevchenko.taskmanagementspringapp.dto.attachment.AttachmentResponseDto;
 import org.shevchenko.taskmanagementspringapp.service.AttachmentService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -41,8 +42,10 @@ public class AttachmentController {
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
-    public List<AttachmentResponseDto> getByTaskId(@RequestParam Long taskId) {
-        return attachmentService.getByTaskId(taskId);
+    public Page<AttachmentResponseDto> getByTaskId(
+            @RequestParam Long taskId,
+            Pageable pageable) {
+        return attachmentService.getByTaskId(taskId, pageable);
     }
 
     @Operation(summary = "Delete attachment by id")

@@ -25,6 +25,7 @@ import org.shevchenko.taskmanagementspringapp.repository.CommentRepository;
 import org.shevchenko.taskmanagementspringapp.repository.TaskRepository;
 import org.shevchenko.taskmanagementspringapp.service.UserService;
 import org.shevchenko.taskmanagementspringapp.support.TestDataFactory;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 class CommentServiceImplTest {
@@ -84,7 +85,7 @@ class CommentServiceImplTest {
         CommentResponseDto secondDto = TestDataFactory.commentResponse(2L, 10L, 1L);
 
         when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
-        when(commentRepository.findAllByTaskIdOrderByTimestampAsc(10L)).thenReturn(List.of(first, second));
+        when(commentRepository.findAllByTaskIdOrderByTimestampAsc(10L, Pageable.unpaged())).thenReturn(List.of(first, second));
         when(commentMapper.toDto(first)).thenReturn(firstDto);
         when(commentMapper.toDto(second)).thenReturn(secondDto);
 

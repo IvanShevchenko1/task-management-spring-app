@@ -3,11 +3,12 @@ package org.shevchenko.taskmanagementspringapp.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.shevchenko.taskmanagementspringapp.dto.comment.CommentCreateRequestDto;
 import org.shevchenko.taskmanagementspringapp.dto.comment.CommentResponseDto;
 import org.shevchenko.taskmanagementspringapp.service.CommentService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -41,10 +42,11 @@ public class CommentController {
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
-    public List<CommentResponseDto> getCommentsByTaskId(
-            @RequestParam Long taskId
+    public Page<CommentResponseDto> getCommentsByTaskId(
+            @RequestParam Long taskId,
+            Pageable pageable
     ) {
-        return commentService.getCommentsByTaskId(taskId);
+        return commentService.getCommentsByTaskId(taskId, pageable);
     }
 
     @Operation(summary = "Delete comment by id")

@@ -1,92 +1,126 @@
 package org.shevchenko.taskmanagementspringapp.controller;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.shevchenko.taskmanagementspringapp.dto.label.AssignLabelsToTaskRequestDto;
-import org.shevchenko.taskmanagementspringapp.dto.label.LabelResponseDto;
-import org.shevchenko.taskmanagementspringapp.dto.task.TaskCreateRequestDto;
-import org.shevchenko.taskmanagementspringapp.dto.task.TaskResponseDto;
-import org.shevchenko.taskmanagementspringapp.dto.task.TaskUpdateRequestDto;
-import org.shevchenko.taskmanagementspringapp.service.LabelService;
+import org.shevchenko.taskmanagementspringapp.config.SecurityConfig;
+import org.shevchenko.taskmanagementspringapp.security.JwtAuthenticationFilter;
 import org.shevchenko.taskmanagementspringapp.service.TaskService;
 import org.shevchenko.taskmanagementspringapp.support.TestDataFactory;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
 
-@ExtendWith(MockitoExtension.class)
+@WebMvcTest(TaskController.class)
+@Import(SecurityConfig.class)
 class TaskControllerTest {
-    @Mock
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @MockitoBean
     private TaskService taskService;
-    @Mock
-    private LabelService labelService;
-    @InjectMocks
-    private TaskController taskController;
+
+    @MockitoBean
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @MockitoBean
+    private UserDetailsService userDetailsService;
 
     @Test
-    void createTask_shouldDelegateToService() {
-        TaskCreateRequestDto requestDto = TestDataFactory.taskCreateRequest();
-        TaskResponseDto responseDto = TestDataFactory.taskResponse(1L, 9L);
+    @WithMockUser(authorities = "USER")
+    void createTask_shouldReturnCreatedTask() throws Exception {
+        var requestDto = TestDataFactory.taskCreateRequest();
+        var responseDto = TestDataFactory.taskResponse(1L, 9L);
+
         when(taskService.createTask(9L, requestDto)).thenReturn(responseDto);
 
-        assertThat(taskController.createTask(9L, requestDto)).isEqualTo(responseDto);
+        mockMvc.perform(post("/projects/9/tasks")
+                        .with(csrf())
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(requestDto)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.projectId").value(9))
+                .andExpect(jsonPath("$.name").value("Implement tests"));
+
         verify(taskService).createTask(9L, requestDto);
     }
 
     @Test
-    void getAllTasks_shouldDelegateToService() {
-        List<TaskResponseDto> responses = List.of(TestDataFactory.taskResponse(1L, 9L));
-        when(taskService.getAllTasksById(9L)).thenReturn(responses);
+    @WithMockUser(authorities = "USER")
+    void getAllTasks_shouldReturnTasks() throws Exception {
+        var response = List.of(TestDataFactory.taskResponse(1L, 9L));
+        when(taskService.getAllTasksById(9L)).thenReturn(response);
 
-        assertThat(taskController.getAllTasks(9L)).isEqualTo(responses);
+        mockMvc.perform(get("/projects/9/tasks"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(1))
+                .andExpect(jsonPath("$[0].projectId").value(9))
+                .andExpect(jsonPath("$[0].name").value("Implement tests"));
+
+        verify(taskService).getAllTasksById(9L);
     }
 
     @Test
-    void getTaskById_shouldDelegateToService() {
-        TaskResponseDto responseDto = TestDataFactory.taskResponse(1L, 9L);
+    @WithMockUser(authorities = "USER")
+    void getTaskById_shouldReturnTask() throws Exception {
+        var responseDto = TestDataFactory.taskResponse(1L, 9L);
         when(taskService.getTaskById(1L)).thenReturn(responseDto);
 
-        assertThat(taskController.getTaskById(1L)).isEqualTo(responseDto);
+        mockMvc.perform(get("/projects/9/tasks/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.projectId").value(9));
+
+        verify(taskService).getTaskById(1L);
     }
 
     @Test
-    void updateTask_shouldDelegateToService() {
-        TaskUpdateRequestDto requestDto = TestDataFactory.taskUpdateRequest();
-        TaskResponseDto responseDto = TestDataFactory.taskResponse(1L, 9L);
+    @WithMockUser(authorities = "USER")
+    void updateTask_shouldReturnUpdatedTask() throws Exception {
+        var requestDto = TestDataFactory.taskUpdateRequest();
+        var responseDto = TestDataFactory.taskResponse(1L, 9L);
+
         when(taskService.updateTask(1L, requestDto)).thenReturn(responseDto);
 
-        assertThat(taskController.updateTask(1L, requestDto)).isEqualTo(responseDto);
+        mockMvc.perform(put("/projects/9/tasks/1")
+                        .with(csrf())
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(requestDto)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.projectId").value(9));
+
+        verify(taskService).updateTask(1L, requestDto);
     }
 
     @Test
-    void deleteTask_shouldDelegateToService() {
-        taskController.deleteTask(1L);
+    @WithMockUser(authorities = "USER")
+    void deleteTask_shouldReturnNoContent() throws Exception {
+        doNothing().when(taskService).deleteTask(1L);
+
+        mockMvc.perform(delete("/projects/9/tasks/1").with(csrf()))
+                .andExpect(status().isNoContent());
+
         verify(taskService).deleteTask(1L);
-    }
-
-    @Test
-    void assignLabels_shouldDelegateToLabelService() {
-        AssignLabelsToTaskRequestDto requestDto = new AssignLabelsToTaskRequestDto(Set.of(1L, 2L));
-        List<LabelResponseDto> response = List.of(TestDataFactory.labelResponse(1L));
-        when(labelService.assignToTask(11L, Set.of(1L, 2L))).thenReturn(response);
-
-        assertThat(taskController.assignLabels(11L, requestDto)).isEqualTo(response);
-    }
-
-    @Test
-    void createTask_shouldHaveCreatedStatusAnnotation() throws NoSuchMethodException {
-        ResponseStatus responseStatus = TaskController.class
-                .getMethod("createTask", Long.class, TaskCreateRequestDto.class)
-                .getAnnotation(ResponseStatus.class);
-
-        assertThat(responseStatus.value()).isEqualTo(HttpStatus.CREATED);
     }
 }

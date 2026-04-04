@@ -12,6 +12,8 @@ import org.shevchenko.taskmanagementspringapp.dto.task.TaskResponseDto;
 import org.shevchenko.taskmanagementspringapp.dto.task.TaskUpdateRequestDto;
 import org.shevchenko.taskmanagementspringapp.service.LabelService;
 import org.shevchenko.taskmanagementspringapp.service.TaskService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -46,8 +48,10 @@ public class TaskController {
     @PreAuthorize("hasAnyAuthority('ADMIN','USER')")
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
-    public List<TaskResponseDto> getAllTasks(@PathVariable Long projectId) {
-        return taskService.getAllTasksById(projectId);
+    public Page<TaskResponseDto> getAllTasks(
+            @PathVariable Long projectId,
+            Pageable pageable) {
+        return taskService.getAllTasksById(projectId, pageable);
     }
 
     @Operation(summary = "Get task by id")
